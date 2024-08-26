@@ -1,13 +1,9 @@
-import { generateWebIndex } from './GenerateWebIndex.js';
-import { generateWenkuIndex } from './GenerateWenkuIndex.js';
-import { es, mongo } from './config.js';
+import { MONGO } from './init/DbMongo.js';
+import { ensureMongoIndex } from './init/EnsureMongoIndex.js';
 
 async function run() {
-  try {
-    await generateWenkuIndex();
-  } finally {
-    await mongo.close();
-  }
+  await ensureMongoIndex();
+  await MONGO.client.close();
 }
 
 run();
