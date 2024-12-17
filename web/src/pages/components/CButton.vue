@@ -10,15 +10,14 @@ const props = defineProps<{
 
 const message = useMessage();
 
+const { whoami } = Locator.authRepository();
+
 const running = ref(false);
 
 const onClick = async (e: MouseEvent) => {
   if (!props.onAction) return;
 
-  if (
-    props.requireLogin === true &&
-    !Locator.authRepository().isSignedIn.value
-  ) {
+  if (props.requireLogin === true && !whoami.value.isSignedIn) {
     message.info('请先登录');
     return;
   }
@@ -26,9 +25,15 @@ const onClick = async (e: MouseEvent) => {
     message.warning('处理中...');
     return;
   }
-  running.value = true;
-  await props.onAction(e);
-  running.value = false;
+  const ret = props.onAction(e);
+  if (ret instanceof Promise) {
+    try {
+      running.value = true;
+      await ret;
+    } finally {
+      running.value = false;
+    }
+  }
 };
 </script>
 

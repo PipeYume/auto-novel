@@ -129,7 +129,7 @@ const copyTranslationJson = async () => {
       katakanaTranslations.value[key] ?? '',
     ]),
   );
-  const jsonString = Glossary.encodeToText(obj);
+  const jsonString = Glossary.toText(obj);
   navigator.clipboard.writeText(jsonString);
   message.info('已经将翻译结果复制到剪切板');
 };
@@ -233,6 +233,7 @@ const showListModal = ref(false);
           clearable
           size="small"
           style="width: 16em"
+          min="1"
         />
       </c-action-wrapper>
       <c-action-wrapper title="操作">

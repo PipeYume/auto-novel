@@ -8,6 +8,32 @@ const md = new MarkdownIt({
   breaks: true,
   linkify: true,
 }).use(MarkdownItAnchor);
+
+md.linkify.add('http:', {
+  validate: function (text, pos, self) {
+    const tail = text.slice(pos);
+    if (!self.re.customHTTP) {
+      self.re.customHTTP =
+        /(\/\/[a-zA-Z0-9\-\.]+\.[a-zA-Z]{2,6}(?:[/?][a-zA-Z0-9-_/?=&%*#+]+)?)/g;
+    }
+
+    return tail.match(self.re.customHTTP)?.[0].length || 0;
+  },
+});
+
+const defaultRender =
+  md.renderer.rules.link_open ||
+  function (tokens, idx, options, env, self) {
+    return self.renderToken(tokens, idx, options);
+  };
+
+md.renderer.rules.link_open = function (tokens, idx, options, env, self) {
+  const href = tokens[idx].attrGet('href');
+  if (href && !href.startsWith('#')) tokens[idx].attrSet('target', '_blank');
+
+  return defaultRender(tokens, idx, options, env, self);
+};
+
 const vars = useThemeVars();
 </script>
 
@@ -16,6 +42,10 @@ const vars = useThemeVars();
 </template>
 
 <style>
+.markdown {
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
 .markdown a {
   transition: color 0.3s v-bind('vars.cubicBezierEaseInOut');
   cursor: pointer;

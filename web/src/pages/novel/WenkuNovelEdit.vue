@@ -33,7 +33,7 @@ const router = useRouter();
 const isWideScreen = useIsWideScreen();
 const message = useMessage();
 
-const { atLeastMaintainer, createAtLeastOneMonth } = Locator.authRepository();
+const { whoami } = Locator.authRepository();
 
 const allowSubmit = ref(novelId === undefined);
 const formRef = ref<FormInst>();
@@ -84,7 +84,7 @@ const formRules: FormRules = {
   level: [
     {
       validator: (_rule: FormItemRule, value: string) =>
-        value !== '成人向' || createAtLeastOneMonth.value,
+        value !== '成人向' || whoami.value.allowNsfw,
       message: '你太年轻了，无法创建成人向页面',
       trigger: 'input',
     },
@@ -336,14 +336,21 @@ const levelOptions = [
         <b>创建文库小说注意事项：</b>
       </n-text>
       <n-ul>
+        <n-li
+          >请先安装机翻站扩展以启用智能导入功能，另外自动机翻简介功能要求你能使用有道机翻。</n-li
+        >
         <n-li>
-          文库小说只允许已经发行单行本的小说，原则上以亚马逊上可以买到为准，系列小说不要分开导入。
+          文库小说只允许已经发行单行本的日语小说，原则上以亚马逊上可以买到为准，系列小说不要分开导入。
         </n-li>
         <n-li>
-          可以使用智能导入功能，输入亚马逊系列/单本链接直接导入，或是输入小说标题搜索导入。
+          在导入栏输入亚马逊系列/单本链接直接导入，或是输入小说日文主标题搜索导入。
         </n-li>
-        <n-li>导入R18书需要安装插件，并在亚马逊上点过“已满18岁”。</n-li>
-        <n-li>不要重复创建，请确定文库小说列表里面没有这本。 </n-li>
+        <n-li>
+          导入R18书需要注册机翻站满一个月、使用日本IP，并在亚马逊上点过“已满18岁”。
+        </n-li>
+        <n-li>
+          不要重复创建，请先用小说日文标题搜索，确定文库小说列表里面没有这本。
+        </n-li>
         <n-li>
           不要创建文库页再去寻找资源，最后发现资源用不了，留下一个空的文库页。
         </n-li>
@@ -389,7 +396,7 @@ const levelOptions = [
             @action="populateNovelFromAmazon('', true)"
           />
           <c-button
-            v-if="atLeastMaintainer"
+            v-if="whoami.isMaintainer"
             type="error"
             secondary
             label="标记重复"
