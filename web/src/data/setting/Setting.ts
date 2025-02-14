@@ -8,7 +8,6 @@ export interface Setting {
   tocCollapseInNarrowScreen: boolean;
   hideCommmentWebNovel: boolean;
   hideCommmentWenkuNovel: boolean;
-  hideLocalVolumeListInWorkspace: boolean;
   showTagInWebFavored: boolean;
   favoriteCreateTimeFirst: boolean;
   //
@@ -41,7 +40,6 @@ export namespace Setting {
     tocCollapseInNarrowScreen: true,
     hideCommmentWebNovel: false,
     hideCommmentWenkuNovel: false,
-    hideLocalVolumeListInWorkspace: false,
     showTagInWebFavored: false,
     favoriteCreateTimeFirst: false,
     //
@@ -131,7 +129,6 @@ export interface ReaderSetting {
   translationsMode: 'parallel' | 'priority';
   translations: TranslatorId[];
   speakLanguages: string[];
-  enableSakuraReportButton: boolean;
   trimLeadingSpaces: boolean;
   enableSourceLabel: boolean;
   //
@@ -154,7 +151,6 @@ export namespace ReaderSetting {
     translationsMode: 'priority',
     translations: ['sakura', 'gpt', 'youdao', 'baidu'],
     speakLanguages: ['jp'],
-    enableSakuraReportButton: true,
     trimLeadingSpaces: false,
     enableSourceLabel: false,
     //

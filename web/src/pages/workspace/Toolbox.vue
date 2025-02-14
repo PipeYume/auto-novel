@@ -7,12 +7,14 @@ import {
 import { UploadCustomRequestOptions } from 'naive-ui';
 
 import { Locator } from '@/data';
-import { Epub, Txt } from '@/util/file';
-import { downloadFile, RegexUtil } from '@/util';
+import { Epub, parseFile, Srt, Txt } from '@/util/file';
+import { downloadFile, downloadFilesPacked } from '@/util';
+
+import { Toolbox } from './Toolbox';
 
 const message = useMessage();
 
-type ToolboxFile = Epub | Txt;
+type ToolboxFile = Epub | Txt | Srt;
 
 const files = ref<ToolboxFile[]>([]);
 
@@ -21,25 +23,11 @@ const loadFile = async (file: File) => {
     message.warning('文件已经载入');
     return;
   }
-
-  const ext = file.name.split('.').pop()?.toLowerCase();
-  if (ext === 'txt') {
-    const txt = await Txt.fromFile(file);
-    if (txt === undefined) {
-      message.warning(`无法打开TXT文件:${file.name}`);
-      return;
-    }
-    files.value.push(txt);
-  } else if (ext === 'epub') {
-    const epub = await Epub.fromFile(file);
-    if (epub === undefined) {
-      message.warning(`无法打开EPUB文件:${file.name}`);
-      return;
-    }
-    files.value.push(epub);
-  } else {
-    message.warning(`不支持的文件格式:${file.name}`);
-    return;
+  try {
+    const toolboxFile = await parseFile(file, ['txt', 'epub']);
+    files.value.push(toolboxFile);
+  } catch (e) {
+    message.warning(`${e}`);
   }
 };
 
@@ -76,64 +64,22 @@ const customRequest = ({
 
 const showListModal = ref(false);
 
-const fixAllOcr = async () => {
-  for (const file of files.value) {
-    if (file.type === 'txt') {
-      await fixOcr(file);
-    }
-  }
-};
+const fixOcr = () => Toolbox.fixOcr(files.value);
 
-const fixOcr = async (txt: Txt) => {
-  const endsCorrectly = (s: string) => {
-    if (s.length === 0) {
-      return true;
-    }
-    const lastChar = s.charAt(s.length - 1);
-    if (
-      RegexUtil.hasHanzi(lastChar) ||
-      RegexUtil.hasKanaChars(lastChar) ||
-      RegexUtil.hasHangulChars(lastChar) ||
-      RegexUtil.hasEnglishChars(lastChar)
-    ) {
-      return false;
-    } else {
-      return true;
-    }
-  };
+const convertToTxt = () => (files.value = Toolbox.convertToTxt(files.value));
 
-  const lines: string[] = [];
-  let lineProcessing = '';
-  for (let line of txt.text.split('\n')) {
-    if (lineProcessing.length > 0) {
-      line = lineProcessing + line.trim();
-      lineProcessing = '';
-    } else {
-      line = line.trimEnd();
+const download = async () => {
+  if (files.value.length === 0) {
+    message.info('未载入文件');
+  } else if (files.value.length === 1) {
+    const file = files.value[0];
+    await downloadFile(file.name, await file.toBlob());
+  } else {
+    const filesToDownload: [string, Blob][] = [];
+    for (const file of files.value) {
+      filesToDownload.push([file.name, await file.toBlob()]);
     }
-    if (endsCorrectly(line)) {
-      lines.push(line);
-    } else {
-      lineProcessing = line;
-    }
-  }
-  if (lineProcessing.length > 0) {
-    lines.push(lineProcessing);
-  }
-  txt.text = lines.join('\n');
-  downloadFile(txt.name, await txt.toBlob());
-};
-
-const downloadAsTxt = async () => {
-  for (const file of files.value) {
-    if (file.type === 'txt') {
-      downloadFile(file.name, await file.toBlob());
-    } else {
-      downloadFile(
-        file.name.replace(/\.epub$/, '.txt'),
-        new Blob([file.getText()], { type: 'text/plain' }),
-      );
-    }
+    await downloadFilesPacked(filesToDownload);
   }
 };
 </script>
@@ -149,7 +95,7 @@ const downloadAsTxt = async () => {
         @action="showListModal = true"
       />
       <c-button
-        label="全部清空"
+        label="清空"
         :icon="DeleteOutlineOutlined"
         @action="clearFile"
       />
@@ -175,33 +121,31 @@ const downloadAsTxt = async () => {
       <n-empty v-if="files.length === 0" description="未载入文件" />
     </n-flex>
 
-    <n-divider />
-
-    <n-list bordered>
+    <n-list bordered style="margin-top: 20px">
       <n-list-item>
         <n-flex vertical>
           <b>修复OCR换行（只支持TXT格式）</b>
           OCR输出的文本通常存在额外的换行符，导致翻译器错误。当前修复方法是检测每一行的结尾是否是字符（汉字/日文假名/韩文字符/英文字母），如果是的话则删除行尾的换行符。
           <n-flex>
-            <c-button label="修复" size="small" @action="fixAllOcr" />
+            <c-button label="修复" size="small" @action="fixOcr" />
           </n-flex>
         </n-flex>
       </n-list-item>
 
       <n-list-item>
         <n-flex vertical>
-          <b>下载为TXT格式</b>
+          <b>下载</b>
           <n-flex>
-            <c-button label="下载" size="small" @action="downloadAsTxt" />
+            <c-button label="转换成TXT" size="small" @action="convertToTxt" />
+            <c-button label="下载" size="small" @action="download" />
           </n-flex>
         </n-flex>
       </n-list-item>
     </n-list>
 
-    <c-drawer-right v-model:show="showListModal" title="本地小说">
-      <div style="padding: 24px 16px">
-        <local-volume-list-katakana hide-title @volume-loaded="loadLocalFile" />
-      </div>
-    </c-drawer-right>
+    <local-volume-list-katakana
+      v-model:show="showListModal"
+      @volume-loaded="loadLocalFile"
+    />
   </div>
 </template>
