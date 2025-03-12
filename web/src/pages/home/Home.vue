@@ -198,9 +198,19 @@ const githubLink = 'https://github.com/FishHawk/auto-novel';
       <n-p>
         禁止使用脚本绕过翻译器提交翻译文本，哪怕你觉得自己提交的是正经翻译。
       </n-p>
-      <n-p> 工作区的OCR修复和EPUB转TXT合并成小说工具箱 </n-p>
       <n-p>
-        FishHawk长期996,网站开发速度大幅下降已成常态，论坛反馈目前没有精力维护，有问题加群at吧
+        FishHawk长期996,网站开发速度大幅下降已成常态，论坛反馈目前没有精力维护，有问题加群@吧
+      </n-p>
+      <n-p>文件解析正在大改，如果出现小说文件相关问题，加群@FishHawk。</n-p>
+      <n-p>
+        <b>
+          感谢@H接手，共享Sakura现在可以开放使用了，目前在测试中，欢迎使用。
+        </b>
+      </n-p>
+      <n-p style="color: red">
+        <b>
+          由于畜生倒狗创了一堆小号乱编辑小说给他引流，机翻站小说编辑权限不再开放，评论要求注册一个月才能发布。
+        </b>
       </n-p>
     </bulletin>
 
@@ -239,7 +249,7 @@ const githubLink = 'https://github.com/FishHawk/auto-novel';
       <c-a to="/forum">论坛</c-a>
       中发帖讨论。
     </n-p>
-    <n-p> 支持的小说站如下: </n-p>
+    <n-p>支持的小说站如下:</n-p>
     <n-p v-for="[name, link] of linkExample">
       <b>{{ name }}</b>
       <br />

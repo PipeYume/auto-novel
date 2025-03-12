@@ -108,7 +108,7 @@ const showWebNovelsModal = ref(false);
             </n-h2>
 
             <ReuseTagGroup label="作者" :tags="novelResult.value.authors" />
-            <ReuseTagGroup label="插图" :tags="novelResult.value.artists" />
+            <ReuseTagGroup label="画师" :tags="novelResult.value.artists" />
             <ReuseTagGroup
               label="出版"
               :tags="[
@@ -125,7 +125,7 @@ const showWebNovelsModal = ref(false);
   <div class="layout-content">
     <c-result :result="novelResult" v-slot="{ value: metadata }">
       <n-flex>
-        <router-link :to="`/wenku-edit/${novelId}`">
+        <router-link v-if="whoami.asMaintainer" :to="`/wenku-edit/${novelId}`">
           <c-button label="编辑" :icon="EditNoteOutlined" />
         </router-link>
 

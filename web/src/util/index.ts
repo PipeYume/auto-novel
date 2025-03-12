@@ -8,18 +8,6 @@ export const downloadFile = (filename: string, blob: Blob) => {
   el.click();
 };
 
-export const downloadFilesPacked = async (files: [string, Blob][]) => {
-  const { BlobReader, BlobWriter, ZipWriter } = await import('@zip.js/zip.js');
-  const zipBlobWriter = new BlobWriter();
-  const writer = new ZipWriter(zipBlobWriter);
-  await Promise.all(
-    files.map(([filename, blob]) => writer.add(filename, new BlobReader(blob))),
-  );
-  await writer.close();
-  const zipBlob = await zipBlobWriter.getData();
-  downloadFile(`批量下载[${files.length}].zip`, zipBlob);
-};
-
 export const querySearch = <T>(
   data: T[],
   field: string,
@@ -189,4 +177,16 @@ export namespace RegexUtil {
 
   export const isSafari = (agent: string) =>
     /^((?!chrome|android).)*safari/i.test(agent);
+}
+
+export namespace Humanize {
+  const unit = (rawNum: number, units: string[], times: number) => {
+    const i = Math.floor(Math.log(rawNum) / Math.log(times));
+    const j = Math.max(Math.min(i, units.length), 0);
+    const fmtNum = (rawNum / Math.pow(times, j)).toFixed(2);
+    return `${fmtNum}${units[j]}`;
+  };
+
+  export const bytes = (rawNum: number) =>
+    unit(rawNum, ['B', 'KB', 'MB', 'GB', 'TB', 'PB'], 1024);
 }
