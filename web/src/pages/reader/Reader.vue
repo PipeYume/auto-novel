@@ -148,6 +148,9 @@ onKeyDown(['ArrowRight'], (e) => {
 });
 
 onKeyDown(['1', '2', '3', '4'], (e) => {
+  if (e.altKey || e.ctrlKey || e.shiftKey || e.metaKey) {
+    return;
+  }
   const setting = Locator.readerSettingRepository().setting.value;
 
   const translatorIds = <TranslatorId[]>['baidu', 'youdao', 'gpt', 'sakura'];
@@ -170,6 +173,9 @@ const showSettingModal = ref(false);
 const showCatalogModal = ref(false);
 
 onKeyDown(['Enter'], (e) => {
+  if (showSettingModal.value) {
+    return;
+  }
   showCatalogModal.value = !showCatalogModal.value;
   e.preventDefault();
 });
@@ -185,7 +191,7 @@ onKeyDown(['Enter'], (e) => {
       :type="id ? 'primary' : 'default'"
       @action="
         () => {
-          navToChapter(id!!);
+          navToChapter(id!);
         }
       "
     />

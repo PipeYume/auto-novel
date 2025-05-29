@@ -1,5 +1,9 @@
 <script lang="ts" setup>
-import { DeleteOutlineOutlined, PlusOutlined } from '@vicons/material';
+import {
+  BookOutlined,
+  DeleteOutlineOutlined,
+  PlusOutlined,
+} from '@vicons/material';
 import { VueDraggable } from 'vue-draggable-plus';
 
 import { Locator } from '@/data';
@@ -61,15 +65,15 @@ const onProgressUpdated = (
     | { state: 'processed'; finished: number; error: number; total: number },
 ) => {
   if (state.state === 'finish') {
-    const job = processedJobs.value.get(task)!!;
+    const job = processedJobs.value.get(task)!;
     processedJobs.value.delete(task);
     if (!state.abort) {
       job.finishAt = Date.now();
-      workspace.addJobRecord(job as any);
+      workspace.addJobRecord(job as TranslateJob);
       workspace.deleteJob(task);
     }
   } else {
-    const job = processedJobs.value.get(task)!!;
+    const job = processedJobs.value.get(task)!;
     job.progress = {
       finished: state.finished,
       error: state.error,
@@ -174,8 +178,8 @@ const clearCache = async () =>
 
     <section-header title="任务队列">
       <c-button
-        label="添加本地小说"
-        :icon="PlusOutlined"
+        label="本地书架"
+        :icon="BookOutlined"
         @action="showLocalVolumeDrawer = true"
       />
       <c-button-confirm

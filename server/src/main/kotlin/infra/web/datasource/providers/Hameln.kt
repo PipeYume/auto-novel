@@ -16,17 +16,28 @@ import org.jsoup.nodes.Element
 
 class Hameln(
     private val client: HttpClient,
+    useProxy: Boolean,
 ) : WebNovelProvider {
     companion object {
         const val id = "hameln"
 
-        suspend fun addCookies(cookies: CookiesStorage) {
+        private const val URL_ORIGIN = "https://syosetu.org"
+        private const val URL_PROXY = "https://hml.xkvi.top"
+
+        suspend fun addCookies(cookies: CookiesStorage, token: String) {
             cookies.addCookie(
-                "https://syosetu.org/",
+                URL_ORIGIN,
                 Cookie(name = "over18", value = "off", domain = ".syosetu.org")
+            )
+            cookies.addCookie(
+                URL_PROXY,
+                Cookie(name = "token", value = token, domain = ".hml.xkvi.top")
             )
         }
     }
+
+    private val baseUrl =
+        if (useProxy) URL_PROXY else URL_ORIGIN
 
     override suspend fun getRank(options: Map<String, String>): Page<RemoteNovelListItem> {
         return emptyPage()
@@ -34,8 +45,8 @@ class Hameln(
 
     override suspend fun getMetadata(novelId: String): RemoteNovelMetadata {
         val (doc1, doc2) = coroutineScope {
-            val url1 = "https://syosetu.org/novel/$novelId"
-            val url2 = "https://syosetu.org/?mode=ss_detail&nid=$novelId"
+            val url1 = "$baseUrl/novel/$novelId"
+            val url2 = "$baseUrl/?mode=ss_detail&nid=$novelId"
             return@coroutineScope listOf(
                 async { client.get(url1).document() },
                 async { client.get(url2).document() },
@@ -55,7 +66,9 @@ class Hameln(
             .let { el ->
                 WebNovelAuthor(
                     name = el.text(),
-                    link = el.selectFirst("a")?.attr("href"),
+                    link = el.selectFirst("a")
+                        ?.attr("href")
+                        ?.replace(baseUrl, URL_ORIGIN),
                 )
             }
 
@@ -73,6 +86,9 @@ class Hameln(
 
         val attentions = mutableSetOf<WebNovelAttention>()
         val keywords = mutableListOf<String>()
+        row("原作").select("a").map { it.text() }.forEach {
+            keywords.add(it)
+        }
         listOf("タグ", "必須タグ")
             .flatMap { row(it).select("a") }
             .map { it.text() }
@@ -140,8 +156,8 @@ class Hameln(
 
     override suspend fun getChapter(novelId: String, chapterId: String): RemoteChapter {
         val url =
-            if (chapterId == "default") "https://syosetu.org/novel/$novelId"
-            else "https://syosetu.org/novel/$novelId/$chapterId.html"
+            if (chapterId == "default") "$baseUrl/novel/$novelId"
+            else "$baseUrl/novel/$novelId/$chapterId.html"
         val paragraphs = client.get(url).document()
             .selectFirst("div#honbun")!!
             .getElementsByTag("p")

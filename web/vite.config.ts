@@ -1,49 +1,82 @@
 import vue from '@vitejs/plugin-vue';
+import fs from 'fs';
+import path from 'path';
+import Sonda from 'sonda/vite';
 import AutoImport from 'unplugin-auto-import/vite';
+import imagemin from 'unplugin-imagemin/vite';
 import { NaiveUiResolver } from 'unplugin-vue-components/resolvers';
 import Components from 'unplugin-vue-components/vite';
-import { ProxyOptions, defineConfig, loadEnv } from 'vite';
+import { defineConfig, PluginOption, ServerOptions, UserConfig } from 'vite';
 import { createHtmlPlugin } from 'vite-plugin-html';
 import tsconfigPaths from 'vite-tsconfig-paths';
-import imagemin from 'unplugin-imagemin/vite';
 
-export default defineConfig(({ command, mode }) => {
-  const proxy: Record<string, ProxyOptions> = {};
+const enableSonda = process.env.ENABLE_SONDA === '1';
+const enableLocalServer = process.env.LOCAL != undefined;
 
-  if (command === 'serve') {
-    const env = loadEnv(mode, process.cwd(), 'LOCAL');
-    let proxyOptions: ProxyOptions;
-    if ('LOCAL' in env)
-      proxyOptions = {
-        target: 'http://localhost:8081',
+const defineServerOptions = (): ServerOptions => {
+  return {
+    proxy: {
+      '/api': {
+        target: enableLocalServer
+          ? 'http://localhost:8081'
+          : 'https://books.fishhawk.top',
         changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api/, ''),
-      };
-    else
-      proxyOptions = {
+        bypass: (req, _res, _options) => {
+          if (req.url && req.url.includes('/translate-v2/')) {
+            if (req.url.includes('/chapter/')) {
+              console.log('检测到小说章节翻译请求，已拦截');
+              return false;
+            }
+          }
+        },
+        rewrite: (path) => {
+          if (enableLocalServer) {
+            path = path.replace(/^\/api/, '');
+          }
+          return path;
+        },
+      },
+      '/files-temp': {
         target: 'https://books.fishhawk.top',
         changeOrigin: true,
-      };
-    proxy['/api'] = {
-      ...proxyOptions,
-      bypass(req, _res, _options) {
-        if (req.url && req.url.includes('/translate-v2/')) {
-          if (req.url.includes('/chapter/')) {
-            console.log('检测到小说章节翻译请求，已拦截');
-            return false;
-          }
-        }
       },
-    };
-  }
-  return {
-    server: {
-      proxy,
     },
+  };
+};
+
+const filesProxyPlugin = (): PluginOption => ({
+  name: 'files-proxy',
+  configureServer(server) {
+    server.middlewares.use('/files-temp', (req, res) => {
+      const url = new URL('http://localhost' + req.url);
+      const ext = path.extname(url.pathname).toLowerCase();
+      const mimeTypes = {
+        '.epub': 'application/epub+zip',
+        '.txt': 'text/plain',
+      };
+      res.setHeader(
+        'content-type',
+        mimeTypes[ext] || 'application/octet-stream',
+      );
+
+      const filePath = path.join(
+        __dirname,
+        '../server/data/files-temp',
+        url.pathname,
+      );
+      const content = fs.readFileSync(filePath);
+      res.end(content);
+    });
+  },
+});
+
+export default defineConfig(({ command, mode }) => {
+  const userConfig: UserConfig = {
     build: {
       target: ['es2015', 'edge88', 'firefox78', 'chrome87', 'safari14'],
       cssCodeSplit: false,
       rollupOptions: {
+        treeshake: true,
         output: {
           manualChunks(id) {
             if (id.includes('web/src')) {
@@ -63,14 +96,13 @@ export default defineConfig(({ command, mode }) => {
     },
     plugins: [
       vue(),
-      imagemin(),
+      imagemin({}),
       createHtmlPlugin({
-        minify: {
-          minifyJS: true,
-        },
+        minify: { minifyJS: true },
       }),
       tsconfigPaths({ loose: true }),
       AutoImport({
+        dts: './src/auto-imports.d.ts',
         imports: [
           'vue',
           'vue-router',
@@ -87,9 +119,29 @@ export default defineConfig(({ command, mode }) => {
         ],
       }),
       Components({
+        dts: './src/components.d.ts',
         resolvers: [NaiveUiResolver()],
         dirs: ['./**/components/**'],
       }),
     ],
   };
+
+  if (command === 'serve') {
+    userConfig.server = defineServerOptions();
+    if (enableLocalServer) {
+      userConfig.plugins.push(filesProxyPlugin());
+    }
+  }
+
+  if (enableSonda) {
+    userConfig.build.sourcemap = true;
+    userConfig.plugins.push(
+      Sonda({
+        gzip: true,
+        brotli: true,
+      }),
+    );
+  }
+
+  return userConfig;
 });

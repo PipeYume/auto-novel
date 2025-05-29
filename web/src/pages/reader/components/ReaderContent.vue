@@ -1,5 +1,4 @@
 <script lang="ts" setup>
-import { ErrorOutlineOutlined } from '@vicons/material';
 import { useOsTheme } from 'naive-ui';
 import { useScroll } from '@vueuse/core';
 
@@ -7,7 +6,6 @@ import { Locator } from '@/data';
 import { GenericNovelId } from '@/model/Common';
 import { WebNovelChapterDto } from '@/model/WebNovel';
 
-import { doAction } from '@/pages/util';
 import { buildParagraphs } from './BuildParagraphs';
 
 const props = defineProps<{
@@ -16,7 +14,6 @@ const props = defineProps<{
   chapter: WebNovelChapterDto;
 }>();
 
-const message = useMessage();
 const osThemeRef = useOsTheme();
 
 const paragraphs = computed(() => buildParagraphs(props.gnid, props.chapter));
@@ -43,6 +40,7 @@ onMounted(async () => {
 });
 
 const { setting } = Locator.readerSettingRepository();
+
 const fontColor = computed(() => {
   const theme = setting.value.theme;
   if (theme.mode === 'custom') {
@@ -54,8 +52,16 @@ const fontColor = computed(() => {
     } else if (osThemeRef.value) {
       specificTheme = osThemeRef.value;
     }
-    return specificTheme === 'light' ? 'black' : 'white';
+    return specificTheme === 'light' ? '#000000' : '#FFFFFF';
   }
+});
+
+const underlineColor = computed(() => `${fontColor.value}80`);
+
+const textUnderlineOffset = computed(() => {
+  const fontSize = setting.value.fontSize;
+  const offset = Math.round(fontSize / 4);
+  return `${offset}px`;
 });
 </script>
 
@@ -65,15 +71,16 @@ const fontColor = computed(() => {
       v-for="(p, index) of paragraphs"
       :key="`${chapter.prevId}/${index}`"
     >
-      <n-p
-        v-if="p && 'text' in p"
-        :class="{ secondary: p.secondary }"
-        :aria-hidden="!p.needSpeak"
-      >
-        <n-tag v-if="p.source" size="small" class="secondary">
+      <n-p v-if="p && 'text' in p" :aria-hidden="!p.needSpeak">
+        <span v-if="setting.enableSourceLabel && p.source" class="source">
           {{ p.source }}
-        </n-tag>
-        {{ p.text }}
+        </span>
+        <span v-if="!setting.trimLeadingSpaces">
+          {{ p.indent }}
+        </span>
+        <span :class="[p.secondary ? 'second' : 'first', 'text-content']">
+          {{ p.text }}
+        </span>
       </n-p>
       <br v-else-if="!p" />
       <img
@@ -96,9 +103,29 @@ const fontColor = computed(() => {
   font-size: v-bind('`${setting.fontSize}px`');
   margin: v-bind('`${setting.fontSize * setting.lineSpace}px 0`');
   color: v-bind('fontColor');
+}
+#chapter-content p .source {
+  display: inline-block;
+  user-select: none;
+  width: 1em;
+  text-align: center;
+  opacity: 0.4;
+  font-size: 0.75em;
+  margin-right: 0.5em;
+}
+#chapter-content p .first {
   opacity: v-bind('setting.mixZhOpacity');
 }
-#chapter-content .secondary {
+#chapter-content p .second {
   opacity: v-bind('setting.mixJpOpacity');
+}
+#chapter-content p .text-content {
+  text-decoration-line: v-bind(
+    "setting.textUnderline === 'none' ? 'none' : 'underline'"
+  );
+  text-decoration-style: v-bind('setting.textUnderline');
+  text-decoration-color: v-bind('underlineColor');
+  text-decoration-thickness: 1px;
+  text-underline-offset: v-bind('textUnderlineOffset');
 }
 </style>

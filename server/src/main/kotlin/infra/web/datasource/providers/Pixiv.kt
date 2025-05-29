@@ -9,7 +9,6 @@ import io.ktor.client.*
 import io.ktor.client.plugins.cookies.*
 import io.ktor.client.request.*
 import io.ktor.http.*
-import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -20,13 +19,11 @@ class Pixiv(
     companion object {
         const val id = "pixiv"
 
-        suspend fun addCookies(cookies: CookiesStorage, phpsessid: String?) {
-            if (phpsessid != null) {
-                cookies.addCookie(
-                    "https://www.pixiv.net",
-                    Cookie(name = "PHPSESSID", value = phpsessid, domain = ".pixiv.net")
-                )
-            }
+        suspend fun addCookies(cookies: CookiesStorage, phpsessid: String) {
+            cookies.addCookie(
+                "https://www.pixiv.net",
+                Cookie(name = "PHPSESSID", value = phpsessid, domain = ".pixiv.net")
+            )
         }
     }
 
@@ -37,16 +34,8 @@ class Pixiv(
     override suspend fun getMetadata(novelId: String): RemoteNovelMetadata {
         if (novelId.startsWith("s")) {
             val chapterId = novelId.removePrefix("s")
-            val url = "https://www.pixiv.net/novel/show.php?id=$chapterId"
-            val doc = client.get(url).document()
-
-            val obj = doc
-                .selectFirst("meta#meta-preload-data")!!
-                .attr("content")
-                .let { Json.parseToJsonElement(it) }
-                .jsonObject
-                .obj("novel")
-                .obj(chapterId)
+            val url = "https://www.pixiv.net/ajax/novel/$chapterId"
+            val obj = client.get(url).json().obj("body")
 
             val seriesData = obj.objOrNull("seriesNavData")
             if (seriesData != null) {
@@ -155,6 +144,8 @@ class Pixiv(
                                     chapterId = seriesContent.string("id"),
                                 )
                             )
+                        } else {
+                            throw NovelAccessDeniedException()
                         }
                     }
                 keywords.addAll(keywordsBuffer)
@@ -182,14 +173,17 @@ class Pixiv(
 
             arr2
                 .map { it.jsonObject }
-                .filter { it.boolean("available") }
                 .forEach {
-                    toc.add(
-                        RemoteNovelMetadata.TocItem(
-                            title = it.string("title"),
-                            chapterId = it.string("id"),
+                    if (it.boolean("available")) {
+                        toc.add(
+                            RemoteNovelMetadata.TocItem(
+                                title = it.string("title"),
+                                chapterId = it.string("id"),
+                            )
                         )
-                    )
+                    } else {
+                        throw NovelAccessDeniedException()
+                    }
                 }
 
             return RemoteNovelMetadata(
@@ -220,13 +214,18 @@ class Pixiv(
         val id = imagePattern2.find(line)?.groupValues?.get(1) ?: return null
         val fetchUrl = "https://www.pixiv.net/ajax/novel/${chapterId}/insert_illusts?id%5B%5D=${id}"
         val body = client.get(fetchUrl).json().obj("body")
-        val url = body.obj(id).obj("illust").obj("images").string("original")
+        val illust = body.obj(id).objOrNull("illust") ?: return null
+        val url = illust.obj("images").string("original")
         return url
     }
 
     private val rubyPattern = """\[\[rb:([^>]+) > ([^]]+)]]""".toRegex()
-    private fun cleanRuby(line: String): String {
-        return line.replace(rubyPattern) { it.groupValues[1] }
+    private val chapterPattern = """\[charpter:([^]]+)]""".toRegex()
+    private fun cleanFormat(line: String): String {
+        return line
+            .replace(rubyPattern, "$1")
+            .replace(chapterPattern, "章节：$1")
+            .replace("[newpage]", "")
     }
 
     override suspend fun getChapter(novelId: String, chapterId: String): RemoteChapter {
@@ -241,7 +240,7 @@ class Pixiv(
                 ?: parseImageUrlPattern2(line, chapterId)
 
             if (imageUrl == null) {
-                cleanRuby(line)
+                cleanFormat(line)
             } else {
                 "<图片>${imageUrl}"
             }

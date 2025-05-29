@@ -1,10 +1,18 @@
 <script lang="ts" setup>
-import { SortOutlined } from '@vicons/material';
+import {
+  SortOutlined,
+  KeyboardArrowUpRound,
+  KeyboardArrowDownRound,
+} from '@vicons/material';
+import { ref, computed } from 'vue';
 
 import { Locator } from '@/data';
 import { WebNovelDto, WebNovelTocItemDto } from '@/model/WebNovel';
+import ChapterTocList from '@/components/ChapterTocList.vue';
 
 import { useToc, useLastReadChapter } from './UseWebNovel';
+import { useTocExpansion } from './UseTocExpansion';
+import { NScrollbar } from 'naive-ui';
 
 const props = defineProps<{
   providerId: string;
@@ -13,6 +21,9 @@ const props = defineProps<{
 }>();
 
 const { setting } = Locator.settingRepository();
+const sortReverse = computed(() => setting.value.tocSortReverse);
+
+const defaultTocExpanded = computed(() => setting.value.tocExpandAll);
 
 const { toc } = useToc(props.novel);
 const { lastReadChapter } = useLastReadChapter(props.novel, toc);
@@ -24,6 +35,13 @@ const startReadChapter = computed(() => {
 });
 
 const showCatalogDrawer = ref(false);
+
+const { expandedNames, hasSeparators, isAnyExpanded, toggleAll, tocSections } =
+  useTocExpansion(
+    toc,
+    defaultTocExpanded,
+    computed(() => props.novel.lastReadChapterId),
+  );
 </script>
 
 <template>
@@ -58,6 +76,8 @@ const showCatalogDrawer = ref(false);
       :novel-id="novelId"
       :toc-item="startReadChapter"
       :last-read="novel.lastReadChapterId"
+      :is-separator="false"
+      :is-special-chapter="true"
     />
     <c-button
       v-if="novel.toc.length > 1"
@@ -68,41 +88,67 @@ const showCatalogDrawer = ref(false);
     />
   </template>
   <template v-else>
-    <c-button
-      :label="setting.tocSortReverse ? '倒序' : '正序'"
-      :icon="SortOutlined"
-      @action="setting.tocSortReverse = !setting.tocSortReverse"
-      style="margin-bottom: 16px"
-    />
-    <n-list>
-      <n-card
-        v-if="lastReadChapter !== undefined"
-        :bordered="false"
-        embedded
-        style="margin-bottom: 8px"
-        content-style="padding: 6px 0px 0px;"
-      >
-        <b style="padding-left: 6px">上次读到:</b>
-        <chapter-toc-item
-          :provider-id="providerId"
-          :novel-id="novelId"
-          :toc-item="lastReadChapter"
-          :last-read="novel.lastReadChapterId"
-        />
-      </n-card>
-      <n-list-item
-        v-for="tocItem in setting.tocSortReverse ? toc.slice().reverse() : toc"
-        :key="tocItem.key"
-        style="padding: 0px"
-      >
-        <chapter-toc-item
-          :provider-id="providerId"
-          :novel-id="novelId"
-          :toc-item="tocItem"
-          :last-read="novel.lastReadChapterId"
-        />
-      </n-list-item>
-    </n-list>
+    <div
+      style="
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 16px;
+      "
+    >
+      <div style="flex: 1"></div>
+      <c-button
+        v-if="hasSeparators"
+        :label="isAnyExpanded ? '折叠' : '展开'"
+        :icon="isAnyExpanded ? KeyboardArrowUpRound : KeyboardArrowDownRound"
+        quaternary
+        size="small"
+        :round="false"
+        @action="toggleAll"
+        style="margin-right: 8px"
+      />
+      <c-button
+        :label="setting.tocSortReverse ? '倒序' : '正序'"
+        :icon="SortOutlined"
+        quaternary
+        size="small"
+        :round="false"
+        @action="setting.tocSortReverse = !setting.tocSortReverse"
+      />
+    </div>
+    <n-card
+      v-if="lastReadChapter !== undefined"
+      :bordered="false"
+      embedded
+      style="margin-bottom: 8px"
+      content-style="padding: 6px 0px 0px;"
+    >
+      <b style="padding-left: 6px">上次读到:</b>
+      <chapter-toc-item
+        :provider-id="providerId"
+        :novel-id="novelId"
+        :toc-item="lastReadChapter"
+        :last-read="novel.lastReadChapterId"
+        :is-separator="false"
+        :is-special-chapter="true"
+      />
+    </n-card>
+    <n-scrollbar>
+      <chapter-toc-list
+        :toc-sections="tocSections"
+        v-model:expanded-names="expandedNames"
+        :last-read-chapter-id="novel.lastReadChapterId"
+        :default-scroll-key="lastReadChapter?.key"
+        :provider-id="providerId"
+        :novel-id="novelId"
+        :sort-reverse="sortReverse"
+        :mode="{
+          narrow: true,
+          modal: false,
+          collapse: false,
+        }"
+      />
+    </n-scrollbar>
   </template>
 
   <c-drawer-right
@@ -113,31 +159,42 @@ const showCatalogDrawer = ref(false);
   >
     <template #action>
       <c-button
+        v-if="hasSeparators"
+        :label="isAnyExpanded ? '折叠' : '展开'"
+        :icon="isAnyExpanded ? KeyboardArrowUpRound : KeyboardArrowDownRound"
+        quaternary
+        size="small"
+        :round="false"
+        @action="toggleAll"
+        style="margin-right: 8px"
+      />
+      <c-button
         :label="setting.tocSortReverse ? '倒序' : '正序'"
         :icon="SortOutlined"
+        quaternary
+        size="small"
+        :round="false"
         @action="setting.tocSortReverse = !setting.tocSortReverse"
       />
     </template>
 
-    <n-virtual-list
-      :item-size="78"
-      :items="setting.tocSortReverse ? toc.slice().reverse() : toc"
-      item-resizable
-      :default-scroll-key="lastReadChapter?.key"
-      :scrollbar-props="{ trigger: 'none' }"
-      style="height: calc(100vh - 68px)"
-    >
-      <template #default="{ item }">
-        <div :key="item.key" style="padding-left: 8px; padding-right: 8px">
-          <chapter-toc-item
-            :provider-id="providerId"
-            :novel-id="novelId"
-            :toc-item="item"
-            :last-read="novel.lastReadChapterId"
-          />
-        </div>
-      </template>
-    </n-virtual-list>
+    <div style="flex: 1; min-height: 0; padding: 16px 16px 16px 8px">
+      <chapter-toc-list
+        :toc-sections="tocSections"
+        v-model:expanded-names="expandedNames"
+        :last-read-chapter-id="novel.lastReadChapterId"
+        :default-scroll-key="lastReadChapter?.key"
+        :provider-id="providerId"
+        :novel-id="novelId"
+        :sort-reverse="sortReverse"
+        :mode="{
+          narrow: true,
+          modal: false,
+          collapse: true,
+        }"
+        style="height: 100%"
+      />
+    </div>
   </c-drawer-right>
 
   <comment-list

@@ -17,17 +17,23 @@ const props = defineProps<{
 
 const isWideScreen = useIsWideScreen();
 
-const options = [
-  {
-    label: '排序',
-    tags: ['更新时间', '收藏时间'],
-  },
-];
+const { setting } = Locator.settingRepository();
+
+const options = computed(() => {
+  return [
+    {
+      label: '排序',
+      tags: setting.value.favoriteCreateTimeFirst
+        ? ['收藏时间', '更新时间']
+        : ['更新时间', '收藏时间'],
+    },
+  ];
+});
 
 const loader = computed<Loader<WenkuNovelOutlineDto>>(() => {
   const { favoredId } = props;
   return (page, _query, selected) => {
-    const optionNth = (n: number): string => options[n].tags[selected[n]];
+    const optionNth = (n: number): string => options.value[n].tags[selected[n]];
     const optionSort = () => {
       const option = optionNth(0);
       if (option === '更新时间') {
@@ -69,10 +75,10 @@ const novelListRef = ref<InstanceType<typeof NovelListWenku>>();
 
     <n-collapse-transition :show="showControlPanel" style="margin-bottom: 16px">
       <bookshelf-wenku-control
-        :selected-novels="novelListRef!!.selectedNovels"
-        :favoredId="favoredId"
-        @select-all="novelListRef!!.selectAll()"
-        @invert-selection="novelListRef!!.invertSelection()"
+        :selected-novels="novelListRef!.selectedNovels"
+        :favored-id="favoredId"
+        @select-all="novelListRef!.selectAll()"
+        @invert-selection="novelListRef!.invertSelection()"
       />
     </n-collapse-transition>
 

@@ -64,8 +64,8 @@ const queueAllVolumes = (volumes: LocalVolumeMetadata[]) => {
 const shouldTopJob = useKeyModifier('Control');
 const queueVolume = (volumeId: string, total: number = 65536) => {
   const { startIndex, endIndex, level, forceMetadata } =
-    translateOptions.value!!.getTranslateTaskParams();
-  const taskNumber = translateOptions.value!!.getTaskNumber();
+    translateOptions.value!.getTranslateTaskParams();
+  const taskNumber = translateOptions.value!.getTaskNumber();
   const success = store.queueJobToWorkspace(volumeId, {
     level: level,
     type: props.type,
@@ -155,8 +155,9 @@ const progressFilterFunc = computed(() => {
         <n-text>{{ volume.id }}</n-text>
 
         <n-text depth="3">
-          <n-time :time="volume.createAt" type="relative" /> / 总计
-          {{ volume.toc.length }} / 完成 {{ calculateFinished(volume) }} / 过期
+          <n-time :time="volume.createAt" type="relative" />
+          / 总计 {{ volume.toc.length }} / 完成
+          {{ calculateFinished(volume) }} / 过期
           {{ calculateExpired(volume) }}
         </n-text>
 

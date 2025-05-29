@@ -1,4 +1,5 @@
 import { BaseFile } from './base';
+import { StandardNovel } from './standard';
 
 const MIMETYPE_PATH = 'mimetype';
 const MIMETYPE_TEMPLATE = 'application/epub+zip';
@@ -30,18 +31,34 @@ type EpubItemBase = {
   href: string;
   mediaType: string;
   overlay: string | null;
-  properties: string | null;
+  properties: string[] | null;
   fallback: string | null;
 };
 type EpubItemDoc = EpubItemBase & { doc: Document };
 type EpubItemBlob = EpubItemBase & { blob: Blob };
 type EpubItem = EpubItemDoc | EpubItemBlob;
 
+interface EpubItemref {
+  idref: string;
+  linear: string | null;
+  properties: string[] | null;
+}
+
+interface EpubNavItem {
+  text: string;
+  href?: string;
+  children: EpubNavItem[];
+}
+
 export class Epub extends BaseFile {
   type = 'epub' as const;
-  private packagePath: string = '';
+  packagePath: string = '';
+  navigationPath: string | undefined;
+  ncxPath: string | undefined;
   packageDoc!: Document;
-  private items = new Map<string, EpubItem>();
+  items = new Map<string, EpubItem>();
+  itemrefs: EpubItemref[] = [];
+  navItems: EpubNavItem[] = [];
 
   private resolve(path: string) {
     const dir = this.packagePath.substring(
@@ -58,6 +75,11 @@ export class Epub extends BaseFile {
   // ==============================
   // 读取文件内容
   // ==============================
+
+  private parseProperties(attr: string | null) {
+    if (!attr) return null;
+    return attr.split(' ').filter((prop) => prop);
+  }
 
   private parseContainer(doc: Document) {
     const rootfile = getEl(doc, 'rootfile');
@@ -77,6 +99,7 @@ export class Epub extends BaseFile {
 
     this.packageDoc = doc;
     this.parseManifest(manifest);
+    this.parseSpine(spine);
   }
 
   private parseManifest(el: Element) {
@@ -87,17 +110,93 @@ export class Epub extends BaseFile {
       if (!href) throw new Error('Manifest item does not have href');
       const mediaType = itemEl.getAttribute('media-type');
       if (!mediaType) throw new Error('Manifest item does not have media type');
+      const overlay = itemEl.getAttribute('media-overlay');
+      const properties = itemEl.getAttribute('properties');
+      const fallback = itemEl.getAttribute('fallback');
 
       const itemBase: EpubItemBase = {
         id,
         href,
         mediaType,
-        overlay: itemEl.getAttribute('media-overlay'),
-        properties: itemEl.getAttribute('properties'),
-        fallback: itemEl.getAttribute('fallback'),
+        overlay,
+        properties: this.parseProperties(properties),
+        fallback,
       };
-      this.items.set(id, itemBase as any);
+      this.items.set(id, itemBase as EpubItem);
     }
+
+    this.navigationPath = this.items
+      .values()
+      .find(({ properties }) => properties?.includes('nav'))?.href;
+  }
+
+  private parseSpine(el: Element) {
+    for (const itemEl of Array.from(el.getElementsByTagName('itemref'))) {
+      const idref = itemEl.getAttribute('idref');
+      if (!idref) throw new Error('Spine itemref does not have idref');
+      if (!this.items.has(idref))
+        throw new Error('Spine itemref idref not in manifest');
+      const linear = itemEl.getAttribute('linear');
+      const properties = itemEl.getAttribute('properties');
+
+      const itemref: EpubItemref = {
+        idref,
+        linear,
+        properties: this.parseProperties(properties),
+      };
+      this.itemrefs.push(itemref);
+    }
+    const tocIdref = el.getAttribute('toc');
+    if (tocIdref) {
+      const tocItem = this.items.get(tocIdref);
+      this.ncxPath = tocItem?.href;
+    }
+  }
+
+  private parseNavigationDocument(doc: Document) {
+    const parseTocList = (olEl: Element): EpubNavItem[] => {
+      const items: EpubNavItem[] = [];
+
+      olEl.querySelectorAll(':scope > li').forEach((liEl) => {
+        const linkEl = liEl.querySelector(':scope > a, :scope > span');
+        if (!linkEl) throw new Error('Nav toc item does not have link');
+
+        const item: EpubNavItem = {
+          text: linkEl.textContent?.trim() || '',
+          href: linkEl.getAttribute('href')?.split('#')[0] || '',
+          children: [],
+        };
+        const childOlEl = liEl.querySelector(':scope > ol');
+        if (childOlEl) item.children = parseTocList(childOlEl);
+        items.push(item);
+      });
+      return items;
+    };
+    const navEls = Array.from(doc.getElementsByTagName('nav'));
+    const tocOlEl = navEls
+      .find((navEl) => navEl.getAttribute('epub:type') === 'toc')
+      ?.querySelector(':scope > ol');
+    if (!tocOlEl) throw new Error('Nav toc not exist');
+    this.navItems = parseTocList(tocOlEl);
+  }
+
+  private parseNcx(doc: Document) {
+    Array.from(doc.getElementsByTagName('navPoint')).forEach((navPointEl) => {
+      const navLabel = navPointEl.querySelector('navLabel');
+      if (!navLabel) throw new Error('Nav point does not have label');
+      const content = navPointEl.querySelector('content');
+      if (!content) throw new Error('Nav point does not have content');
+
+      const text = navLabel.textContent?.trim() || '';
+      const href = content.getAttribute('src')?.split('#')[0] || '';
+
+      const item: EpubNavItem = {
+        text,
+        href,
+        children: [],
+      };
+      this.navItems.push(item);
+    });
   }
 
   private async parseFile(file: File) {
@@ -135,6 +234,14 @@ export class Epub extends BaseFile {
     this.parseContainer(await readDoc(CONTAINER_PATH));
     this.parsePackage(await readDoc(this.packagePath));
 
+    if (this.navigationPath) {
+      this.parseNavigationDocument(
+        await readDoc(this.resolve(this.navigationPath)),
+      );
+    } else if (this.ncxPath) {
+      this.parseNcx(await readDoc(this.resolve(this.ncxPath)));
+    }
+
     for (const item of this.items.values()) {
       const path = this.resolve(item.href);
 
@@ -152,6 +259,7 @@ export class Epub extends BaseFile {
   static async fromFile(file: File) {
     const epub = new Epub(file.name, file);
     await epub.parseFile(file);
+    StandardNovel.fromEpub(epub);
     return epub;
   }
 
@@ -200,7 +308,8 @@ export class Epub extends BaseFile {
       itemEl.setAttribute('href', item.href);
       itemEl.setAttribute('media-type', item.mediaType);
       if (item.overlay) itemEl.setAttribute('media-overlay', item.overlay);
-      if (item.properties) itemEl.setAttribute('properties', item.properties);
+      if (item.properties)
+        itemEl.setAttribute('properties', item.properties.join(' '));
       if (item.fallback) itemEl.setAttribute('fallback', item.fallback);
       return itemEl;
     });
@@ -209,7 +318,7 @@ export class Epub extends BaseFile {
   }
 
   async toBlob() {
-    this.fixHrefExtension();
+    // this.fixHrefExtension();
     this.updatePackage();
 
     const { BlobReader, BlobWriter, ZipWriter, TextReader } = await import(
@@ -252,6 +361,11 @@ export class Epub extends BaseFile {
   // API
   // ==============================
 
+  iterDocInSpine() {
+    return this.itemrefs
+      .map((itemref) => this.items.get(itemref.idref)!)
+      .filter((item) => 'doc' in item);
+  }
   iterDoc() {
     return [...this.items.values()].filter((item) => 'doc' in item);
   }
@@ -283,9 +397,9 @@ export class Epub extends BaseFile {
 
   getText() {
     const contents: string[] = [];
-    for (const item of this.iterDoc()) {
+    for (const item of this.iterDocInSpine()) {
       Array.from(item.doc.getElementsByClassName('rt')).forEach((node) =>
-        node.parentNode!!.removeChild(node),
+        node.parentNode!.removeChild(node),
       );
       contents.push(item.doc.body.textContent ?? '');
     }

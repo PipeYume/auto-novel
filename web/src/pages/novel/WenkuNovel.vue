@@ -92,7 +92,7 @@ const showWebNovelsModal = ref(false);
               style="border-radius: 2px"
             />
           </div>
-          <n-flex vertical>
+          <n-flex vertical style="min-width: 0">
             <n-h2
               prefix="bar"
               style="margin: 8px 0"
@@ -213,7 +213,7 @@ const showWebNovelsModal = ref(false);
             <WenkuVolume
               :novel-id="novelId"
               :volume="volume"
-              :get-params="() => translateOptions!!.getTranslateTaskParams()"
+              :get-params="() => translateOptions!.getTranslateTaskParams()"
               @delete="deleteVolume(volume.volumeId)"
             />
           </n-list-item>

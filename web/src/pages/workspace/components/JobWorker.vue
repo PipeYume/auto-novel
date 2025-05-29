@@ -17,7 +17,7 @@ import {
   SakuraWorker,
   TranslateTaskDescriptor,
 } from '@/model/Translator';
-import TranslateTask from '@/pages/components/TranslateTask.vue';
+import TranslateTask from '@/components/TranslateTask.vue';
 
 const props = defineProps<{
   worker:
@@ -97,7 +97,7 @@ const processTasks = async () => {
     if (job === undefined) break;
     const { desc, params } = TranslateTaskDescriptor.parse(job.task);
 
-    const state = await translateTask.value!!.startTask(
+    const state = await translateTask.value!.startTask(
       desc,
       params,
       translatorConfig.value,
@@ -166,7 +166,7 @@ const testWorker = async () => {
         ].join('\n'),
       );
     }
-  } catch (e: any) {
+  } catch (e: unknown) {
     message.error(`翻译器错误：${e}`);
   }
 };

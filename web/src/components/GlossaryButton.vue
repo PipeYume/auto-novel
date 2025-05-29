@@ -5,7 +5,8 @@ import { Locator } from '@/data';
 import { GenericNovelId } from '@/model/Common';
 import { Glossary } from '@/model/Glossary';
 
-import { doAction } from '@/pages/util';
+import { doAction, copyToClipBoard } from '@/pages/util';
+import { downloadFile } from '@/util';
 
 const props = defineProps<{
   gnid?: GenericNovelId;
@@ -91,7 +92,7 @@ const clearTerm = () => {
 
 const undoDeleteTerm = () => {
   if (deletedTerms.value.length === 0) return;
-  const [jp, zh] = deletedTerms.value.pop()!!;
+  const [jp, zh] = deletedTerms.value.pop()!;
   glossary.value[jp] = zh;
 };
 
@@ -110,9 +111,16 @@ const addTerm = () => {
   }
 };
 
-const exportGlossary = () => {
-  navigator.clipboard.writeText(Glossary.toText(glossary.value));
-  message.info('导出成功，已经将术语表复制到剪切板');
+const exportGlossary = async (ev: MouseEvent) => {
+  const isSuccess = await copyToClipBoard(
+    Glossary.toText(glossary.value),
+    ev.target as HTMLElement,
+  );
+  if (isSuccess) {
+    message.success('导出成功：已复制到剪贴板');
+  } else {
+    message.success('导出失败');
+  }
 };
 
 const importGlossary = () => {
@@ -126,6 +134,15 @@ const importGlossary = () => {
       glossary.value[jp] = zh;
     }
   }
+};
+
+const downloadGlossaryAsJsonFile = async (ev: MouseEvent) => {
+  downloadFile(
+    `${gnidHint.value ?? 'glossary'}.json`,
+    new Blob([Glossary.toJson(glossary.value)], {
+      type: 'text/plain',
+    }),
+  );
 };
 </script>
 
@@ -152,7 +169,7 @@ const importGlossary = () => {
 
           <n-text>
             使用前务必先阅读
-            <c-a to="/forum/660ab4da55001f583649a621"> 术语表使用指南 </c-a>
+            <c-a to="/forum/660ab4da55001f583649a621">术语表使用指南</c-a>
             ，不要滥用术语表。
           </n-text>
         </template>
@@ -197,6 +214,12 @@ const importGlossary = () => {
             @action="importGlossary"
           />
           <c-button
+            label="下载json文件"
+            :round="false"
+            size="small"
+            @action="downloadGlossaryAsJsonFile"
+          />
+          <c-button
             v-if="whoami.isMaintainer"
             secondary
             type="error"
@@ -205,6 +228,8 @@ const importGlossary = () => {
             size="small"
             @action="clearTerm"
           />
+        </n-flex>
+        <n-flex align="center" :wrap="false">
           <c-button
             :disabled="deletedTerms.length === 0"
             label="撤销删除"

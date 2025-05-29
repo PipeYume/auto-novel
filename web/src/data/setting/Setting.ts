@@ -6,10 +6,13 @@ export interface Setting {
   tocSortReverse: boolean;
   //
   tocCollapseInNarrowScreen: boolean;
+  tocExpandAll: boolean;
   hideCommmentWebNovel: boolean;
   hideCommmentWenkuNovel: boolean;
   showTagInWebFavored: boolean;
   favoriteCreateTimeFirst: boolean;
+  //
+  autoTopJobWhenAddTask: boolean;
   //
   menuCollapsed: boolean;
   //
@@ -33,15 +36,18 @@ export interface Setting {
 
 export namespace Setting {
   export const defaultValue: Setting = {
-    theme: 'light',
+    theme: 'system',
     enabledTranslator: ['baidu', 'youdao', 'gpt', 'sakura'],
     tocSortReverse: false,
     //
     tocCollapseInNarrowScreen: true,
+    tocExpandAll: true,
     hideCommmentWebNovel: false,
     hideCommmentWenkuNovel: false,
     showTagInWebFavored: false,
     favoriteCreateTimeFirst: false,
+    //
+    autoTopJobWhenAddTask: false,
     //
     menuCollapsed: false,
     //
@@ -73,11 +79,11 @@ export namespace Setting {
     if (setting.enabledTranslator === undefined) {
       setting.enabledTranslator = ['baidu', 'youdao', 'gpt', 'sakura'];
     }
-    if ((setting.downloadFormat.mode as any) === 'mix') {
+    if ((setting.downloadFormat.mode as unknown) === 'mix') {
       setting.downloadFormat.mode = 'zh-jp';
-    } else if ((setting.downloadFormat.mode as any) === 'mix-reverse') {
+    } else if ((setting.downloadFormat.mode as unknown) === 'mix-reverse') {
       setting.downloadFormat.mode = 'jp-zh';
-    } else if ((setting.downloadFormat.mode as any) === 'jp') {
+    } else if ((setting.downloadFormat.mode as unknown) === 'jp') {
       setting.downloadFormat.mode = 'zh';
     }
     // 2024-03-05
@@ -128,7 +134,9 @@ export interface ReaderSetting {
   mode: 'jp' | 'zh' | 'zh-jp' | 'jp-zh';
   translationsMode: 'parallel' | 'priority';
   translations: TranslatorId[];
+  clickArea: 'default' | 'left-right' | 'up-down' | 'none';
   speakLanguages: string[];
+  enableClickAnimition: boolean;
   trimLeadingSpaces: boolean;
   enableSourceLabel: boolean;
   //
@@ -143,6 +151,7 @@ export interface ReaderSetting {
   };
   mixJpOpacity: number;
   mixZhOpacity: number;
+  textUnderline: 'none' | 'solid' | 'dashed' | 'dotted';
 }
 
 export namespace ReaderSetting {
@@ -150,7 +159,9 @@ export namespace ReaderSetting {
     mode: 'zh-jp',
     translationsMode: 'priority',
     translations: ['sakura', 'gpt', 'youdao', 'baidu'],
+    clickArea: 'default',
     speakLanguages: ['jp'],
+    enableClickAnimition: true,
     trimLeadingSpaces: false,
     enableSourceLabel: false,
     //
@@ -159,12 +170,13 @@ export namespace ReaderSetting {
     lineSpace: 1.0,
     pageWidth: 800,
     theme: {
-      mode: 'light',
+      mode: 'system',
       bodyColor: '#FFFFFF',
       fontColor: '#000000',
     },
     mixJpOpacity: 0.4,
     mixZhOpacity: 0.75,
+    textUnderline: 'none',
   };
 
   export const migrate = (setting: ReaderSetting) => {
@@ -207,6 +219,13 @@ export namespace ReaderSetting {
     { label: '并列', value: 'parallel' },
   ];
 
+  export const clickAreaOptions = [
+    { label: '默认', value: 'default' },
+    { label: '左右', value: 'left-right' },
+    { label: '上下', value: 'up-down' },
+    { label: '关闭', value: 'none' },
+  ];
+
   export const speakLanguagesOptions = [
     { label: '中文', value: 'zh' },
     { label: '日文', value: 'jp' },
@@ -215,6 +234,13 @@ export namespace ReaderSetting {
   export const fontWeightOptions = [
     { label: '正常', value: 400 },
     { label: '加粗', value: 600 },
+  ];
+
+  export const textUnderlineOptions = [
+    { label: '关闭', value: 'none' },
+    { label: '实线', value: 'solid' },
+    { label: '虚线', value: 'dashed' },
+    { label: '点状', value: 'dotted' },
   ];
 
   export const themeModeOptions = [

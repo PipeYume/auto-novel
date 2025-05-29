@@ -2,6 +2,10 @@
 	encode gzip
 
 	handle {
+		reverse_proxy /monitor* grafana:3000
+	}
+
+	handle {
 		root * /dist
 		file_server
 		route {
@@ -22,8 +26,8 @@
 		reverse_proxy server:8081
 	}
 
-	handle_path /files-web* {
-		root * /data/files-web
+	handle_path /files-temp* {
+		root * /data/files-temp
 		file_server
 		header @filename Content-Disposition "attachment; filename=\"{http.request.uri.query.filename}\""
 	}
@@ -31,7 +35,6 @@
 	handle_path /files-wenku* {
 		root * /data/files-wenku
 		file_server
-		header @filename Content-Disposition "attachment; filename=\"{http.request.uri.query.filename}\""
 	}
 
 	handle_path /files-extra* {

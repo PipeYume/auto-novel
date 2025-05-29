@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { MoreVertOutlined } from '@vicons/material';
+import { FileDownloadOutlined, MoreVertOutlined } from '@vicons/material';
 
 import { Locator } from '@/data';
 import { Setting } from '@/data/setting/Setting';
@@ -28,17 +28,15 @@ const { volumes } = storeToRefs(store);
 store.loadVolumes();
 
 const options = computed(() => {
-  return [...Object.keys(props.options ?? {}), '批量删除', '批量下载'].map(
-    (it) => ({ label: it, key: it }),
-  );
+  return [...Object.keys(props.options ?? {}), '批量删除'].map((it) => ({
+    label: it,
+    key: it,
+  }));
 });
 const handleSelect = (key: string) => {
   switch (key) {
     case '批量删除':
       openDeleteModal();
-      break;
-    case '批量下载':
-      downloadVolumes();
       break;
     default:
       props.options?.[key]?.(volumes.value ?? []);
@@ -78,6 +76,16 @@ const search = reactive({
   enableRegexMode: false,
 });
 
+const favoredRepository = Locator.favoredRepository();
+const favoreds = favoredRepository.favoreds;
+const selectedFavored = ref<string | undefined>(favoreds.value.local[0]?.id);
+const favoredsOptions = computed(() => {
+  return favoreds.value.local.map(({ id, title }) => ({
+    label: title,
+    value: id,
+  }));
+});
+
 const sortedVolumes = computed(() => {
   const filteredVolumes =
     props.filter === undefined
@@ -85,6 +93,7 @@ const sortedVolumes = computed(() => {
       : volumes.value.filter(props.filter);
   return BookshelfLocalUtil.filterAndSortVolumes(filteredVolumes, {
     ...search,
+    favoredId: selectedFavored.value,
     order: setting.value.localVolumeOrder,
   });
 });
@@ -93,8 +102,15 @@ const sortedVolumes = computed(() => {
 <template>
   <c-drawer-right title="本地小说">
     <template #action>
-      <bookshelf-local-add-button @done="emit('volumeAdd', $event)" />
-
+      <bookshelf-local-add-button
+        :favored-id="selectedFavored"
+        @done="emit('volumeAdd', $event)"
+      />
+      <c-button
+        label="下载"
+        :icon="FileDownloadOutlined"
+        @click="downloadVolumes"
+      />
       <n-dropdown
         trigger="click"
         :options="options"
@@ -113,6 +129,14 @@ const sortedVolumes = computed(() => {
           <search-input
             v-model:value="search"
             placeholder="搜索文件名"
+            style="max-width: 400px"
+          />
+        </c-action-wrapper>
+
+        <c-action-wrapper v-if="favoreds.local.length > 1" title="收藏">
+          <n-select
+            v-model:value="selectedFavored"
+            :options="favoredsOptions"
             style="max-width: 400px"
           />
         </c-action-wrapper>

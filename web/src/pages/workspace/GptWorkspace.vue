@@ -1,5 +1,9 @@
 <script lang="ts" setup>
-import { DeleteOutlineOutlined, PlusOutlined } from '@vicons/material';
+import {
+  BookOutlined,
+  DeleteOutlineOutlined,
+  PlusOutlined,
+} from '@vicons/material';
 import { VueDraggable } from 'vue-draggable-plus';
 
 import { Locator } from '@/data';
@@ -54,14 +58,14 @@ const onProgressUpdated = (
     | { state: 'processed'; finished: number; error: number; total: number },
 ) => {
   if (state.state === 'finish') {
-    const job = processedJobs.value.get(task)!!;
+    const job = processedJobs.value.get(task)!;
     processedJobs.value.delete(task);
     if (!state.abort) {
       workspace.addJobRecord(job);
       workspace.deleteJob(task);
     }
   } else {
-    const job = processedJobs.value.get(task)!!;
+    const job = processedJobs.value.get(task)!;
     job.progress = {
       finished: state.finished,
       error: state.error,
@@ -84,9 +88,7 @@ const clearCache = async () =>
 
     <bulletin>
       <n-flex>
-        <c-a to="/forum/64f3d63f794cbb1321145c07" target="_blank">
-          使用教程
-        </c-a>
+        <c-a to="/forum/64f3d63f794cbb1321145c07" target="_blank">使用教程</c-a>
         /
         <n-a href="https://chat.deepseek.com" target="_blank">
           DeepSeek Chat
@@ -136,8 +138,8 @@ const clearCache = async () =>
 
     <section-header title="任务队列">
       <c-button
-        label="添加本地小说"
-        :icon="PlusOutlined"
+        label="本地书架"
+        :icon="BookOutlined"
         @action="showLocalVolumeDrawer = true"
       />
       <c-button-confirm

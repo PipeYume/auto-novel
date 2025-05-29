@@ -7,8 +7,7 @@ import { WebNovelRepository } from '@/data/api';
 import { GenericNovelId } from '@/model/Common';
 import { TranslateTaskDescriptor } from '@/model/Translator';
 
-import TranslateTask from '@/pages/components/TranslateTask.vue';
-import { checkIsMobile } from '@/pages/util';
+import TranslateTask from '@/components/TranslateTask.vue';
 import TranslateOptions from './TranslateOptions.vue';
 
 const props = defineProps<{
@@ -44,7 +43,7 @@ const translateTask = ref<InstanceType<typeof TranslateTask>>();
 const startTranslateTask = (translatorId: 'baidu' | 'youdao') =>
   translateTask?.value?.startTask(
     { type: 'web', providerId, novelId },
-    translateOptions.value!!.getTranslateTaskParams(),
+    translateOptions.value!.getTranslateTaskParams(),
     { id: translatorId },
   );
 
@@ -89,11 +88,11 @@ const importToWorkspace = async () => {
     .catch((error) => message.error(`导入失败:${error}`));
 };
 
-const shouldTopJob = useKeyModifier('Control');
+const pressControl = useKeyModifier('Control');
 const submitJob = (id: 'gpt' | 'sakura') => {
   const { startIndex, endIndex, level, forceMetadata } =
-    translateOptions.value!!.getTranslateTaskParams();
-  const taskNumber = translateOptions.value!!.getTaskNumber();
+    translateOptions.value!.getTranslateTaskParams();
+  const taskNumber = translateOptions.value!.getTaskNumber();
 
   if (endIndex <= startIndex || startIndex >= total) {
     message.error('排队失败：没有选中章节');
@@ -138,7 +137,7 @@ const submitJob = (id: 'gpt' | 'sakura') => {
     };
     const success = workspace.addJob(job);
     if (success) {
-      if (shouldTopJob.value) {
+      if (setting.value.autoTopJobWhenAddTask || pressControl.value) {
         workspace.topJob(job);
       }
     }
@@ -153,7 +152,7 @@ const submitJob = (id: 'gpt' | 'sakura') => {
 </script>
 
 <template>
-  <n-text v-if="!whoami.isSignedIn"> 游客无法使用翻译功能，请先登录。 </n-text>
+  <n-text v-if="!whoami.isSignedIn">游客无法使用翻译功能，请先登录。</n-text>
   <n-text v-else-if="setting.enabledTranslator.length === 0">
     没有翻译器启用。
   </n-text>

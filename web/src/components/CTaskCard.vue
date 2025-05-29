@@ -35,7 +35,7 @@ watch(
   () => {
     if (enableAutoScroll.value) {
       nextTick(() => {
-        logRef.value?.scrollTo({ top: Number.MAX_SAFE_INTEGER });
+        logRef.value?.scrollBy({ top: 100 });
       });
     }
   },
@@ -89,10 +89,7 @@ defineExpose({
       >
         <div v-for="log of logs">
           {{ log.message }}
-          <span
-            v-if="log.detail"
-            @click="showDetail(log.message, log.detail!!)"
-          >
+          <span v-if="log.detail" @click="showDetail(log.message, log.detail!)">
             [详细]
           </span>
         </div>
