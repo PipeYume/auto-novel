@@ -5,17 +5,17 @@ networks:
 
 services:
   web:
-    image: ghcr.io/fishhawk/auto-novel-web
+    image: ghcr.io/auto-novel/auto-novel-web:latest
     ports:
       - 80:80
     volumes:
-      - ${DATA_PATH}/files-temp:/data/files-temp
-      - ${DATA_PATH}/files-wenku:/data/files-wenku
-      - ${DATA_PATH}/files-extra:/data/files-extra
+      - ./data/files-temp:/data/files-temp
+      - ./data/files-wenku:/data/files-wenku
+      - ./data/files-extra:/data/files-extra
     restart: always
 
   server:
-    image: ghcr.io/fishhawk/auto-novel-server
+    image: ghcr.io/auto-novel/auto-novel-server:latest
     depends_on:
       - mongo
       - elasticsearch
@@ -32,9 +32,9 @@ services:
     ports:
       - 8081:8081
     volumes:
-      - ${DATA_PATH}/files-temp:/data/files-temp
-      - ${DATA_PATH}/files-wenku:/data/files-wenku
-      - ${DATA_PATH}/files-extra:/data/files-extra
+      - ./data/files-temp:/data/files-temp
+      - ./data/files-wenku:/data/files-wenku
+      - ./data/files-extra:/data/files-extra
     restart: always
 
   mongo:
@@ -44,7 +44,7 @@ services:
     ports:
       - 27017:27017
     volumes:
-      - ${DATA_PATH}/db:/data/db
+      - ./data/db:/data/db
     restart: always
 
   elasticsearch:
@@ -62,8 +62,8 @@ services:
     cap_add:
       - IPC_LOCK
     volumes:
-      - ${DATA_PATH}/es/data:/usr/share/elasticsearch/data
-      - ${DATA_PATH}/es/plugins:/usr/share/elasticsearch/plugins
+      - ./data/es/data:/usr/share/elasticsearch/data
+      - ./data/es/plugins:/usr/share/elasticsearch/plugins
     ports:
       - 9200:9200
     restart: always

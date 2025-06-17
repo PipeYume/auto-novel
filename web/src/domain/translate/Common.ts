@@ -131,14 +131,16 @@ export const createLengthSegmentor = (
       const lineJpSize = lineJp.length;
 
       if (segSize + lineJpSize > maxLength || segJp.length >= maxLine) {
-        if (textZh === undefined) {
-          segs.push([segJp]);
-        } else {
-          segs.push([segJp, segZh]);
-          segZh = [];
+        if (segJp.length > 0) {
+          if (textZh === undefined) {
+            segs.push([segJp]);
+          } else {
+            segs.push([segJp, segZh]);
+            segZh = [];
+          }
+          segJp = [];
+          segSize = 0;
         }
-        segJp = [];
-        segSize = 0;
       }
 
       if (textZh !== undefined) {
@@ -162,7 +164,7 @@ export const createLengthSegmentor = (
 };
 
 export interface SegmentCache {
-  cacheKey(seg: string[], extra?: any): string;
+  cacheKey(seg: string[], extra?: unknown): string;
   get(cacheKey: string): Promise<string[] | undefined>;
   save(cacheKey: string, output: string[]): Promise<void>;
 }
@@ -171,7 +173,7 @@ export const createSegIndexedDbCache = async (
   storeName: 'gpt-seg-cache' | 'sakura-seg-cache',
 ) => {
   return <SegmentCache>{
-    cacheKey: (seg: string[], extra?: any): string =>
+    cacheKey: (seg: string[], extra?: unknown): string =>
       MD5(JSON.stringify({ seg, extra })).toString(),
 
     get: (hash: string): Promise<string[] | undefined> =>
