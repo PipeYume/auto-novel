@@ -1,18 +1,11 @@
-import { Locator } from '@/data';
+import { YoudaoApi } from '@/api';
 import { RegexUtil, safeJson } from '@/util';
-
-import {
-  Logger,
-  SegmentContext,
-  SegmentTranslator,
-  createGlossaryWrapper,
-  createLengthSegmentor,
-} from './Common';
+import type { Logger, SegmentContext, SegmentTranslator } from './Common';
+import { createGlossaryWrapper, createLengthSegmentor } from './Common';
 
 export class YoudaoTranslator implements SegmentTranslator {
   id = <const>'youdao';
   log: Logger;
-  private api = Locator.youdaoRepository();
 
   constructor(log: Logger) {
     this.log = log;
@@ -20,8 +13,8 @@ export class YoudaoTranslator implements SegmentTranslator {
 
   async init() {
     try {
-      await this.api.rlog();
-      await this.api.refreshKey();
+      await YoudaoApi.rlog();
+      await YoudaoApi.refreshKey();
     } catch (e) {
       this.log('无法获得Key，使用默认值');
     }
@@ -50,18 +43,20 @@ export class YoudaoTranslator implements SegmentTranslator {
       from = 'en';
     }
 
-    const decoded = await this.api.webtranslate(seg.join('\n'), from, {
+    const decoded = await YoudaoApi.webtranslate(seg.join('\n'), from, {
       signal,
     });
-    const decodedJson = safeJson<any>(decoded);
+    const decodedJson = safeJson<{ translateResult: { tgt: string }[][] }>(
+      decoded,
+    );
 
     if (decodedJson === undefined) {
       this.log(`　错误：${decoded}`);
       throw 'quit';
     } else {
       try {
-        const result = decodedJson['translateResult'].map((it: any) =>
-          it.map((it: any) => it.tgt.trimEnd()).join(''),
+        const result = decodedJson['translateResult'].map((it) =>
+          it.map((it) => it.tgt.trimEnd()).join(''),
         );
         return result;
       } catch (e) {

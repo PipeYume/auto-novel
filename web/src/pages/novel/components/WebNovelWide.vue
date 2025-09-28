@@ -1,19 +1,15 @@
 <script lang="ts" setup>
 import {
-  SortOutlined,
-  KeyboardArrowUpRound,
   KeyboardArrowDownRound,
+  KeyboardArrowUpRound,
+  SortOutlined,
 } from '@vicons/material';
-import { computed, ref } from 'vue';
-
-import { Locator } from '@/data';
-import { WebNovelTocItemDto, WebNovelDto } from '@/model/WebNovel';
-import ChapterTocList from '@/components/ChapterTocList.vue';
-
-import { useToc, useLastReadChapter } from './UseWebNovel';
-import { useTocExpansion } from './UseTocExpansion';
-
 import { NScrollbar } from 'naive-ui';
+
+import type { WebNovelDto, WebNovelTocItemDto } from '@/model/WebNovel';
+import { useSettingStore } from '@/stores';
+import { useTocExpansion } from './UseTocExpansion';
+import { useLastReadChapter, useToc } from './UseWebNovel';
 
 const props = defineProps<{
   providerId: string;
@@ -21,7 +17,9 @@ const props = defineProps<{
   novel: WebNovelDto;
 }>();
 
-const { setting } = Locator.settingRepository();
+const settingStore = useSettingStore();
+const { setting } = storeToRefs(settingStore);
+
 const sortReverse = computed(() => setting.value.tocSortReverse);
 
 const { toc } = useToc(props.novel);
@@ -90,7 +88,7 @@ const { expandedNames, hasSeparators, isAnyExpanded, toggleAll, tocSections } =
       </section-header>
 
       <n-scrollbar style="flex: 1; min-height: 0; padding: 0 16px 0 0">
-        <chapter-toc-list
+        <ChapterTocList
           :toc-sections="tocSections"
           v-model:expanded-names="expandedNames"
           :last-read-chapter-id="novel.lastReadChapterId"

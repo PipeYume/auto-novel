@@ -1,12 +1,12 @@
 <script lang="ts" setup>
-import { useOsTheme } from 'naive-ui';
 import { useScroll } from '@vueuse/core';
+import { useOsTheme } from 'naive-ui';
 
-import { Locator } from '@/data';
-import { GenericNovelId } from '@/model/Common';
-import { WebNovelChapterDto } from '@/model/WebNovel';
-
+import type { GenericNovelId } from '@/model/Common';
+import type { WebNovelChapterDto } from '@/model/WebNovel';
+import { useReaderSettingStore } from '@/stores';
 import { buildParagraphs } from './BuildParagraphs';
+import { ReadPositionRepo } from '@/repos';
 
 const props = defineProps<{
   gnid: GenericNovelId;
@@ -18,10 +18,8 @@ const osThemeRef = useOsTheme();
 
 const paragraphs = computed(() => buildParagraphs(props.gnid, props.chapter));
 
-const readPositionRepository = Locator.readPositionRepository();
-
 const addReadPosition = () => {
-  readPositionRepository.addPosition(props.gnid, {
+  ReadPositionRepo.addPosition(props.gnid, {
     chapterId: props.chapterId,
     scrollY: window.scrollY,
   });
@@ -30,7 +28,7 @@ const addReadPosition = () => {
 useScroll(window, { onScroll: addReadPosition, throttle: 1000 });
 
 onMounted(async () => {
-  const readPosition = readPositionRepository.getPosition(props.gnid);
+  const readPosition = ReadPositionRepo.getPosition(props.gnid);
   if (readPosition && readPosition.chapterId === props.chapterId) {
     // hacky: 等待段落显示完成
     await nextTick();
@@ -39,10 +37,11 @@ onMounted(async () => {
   }
 });
 
-const { setting } = Locator.readerSettingRepository();
+const readerSettingStore = useReaderSettingStore();
+const { readerSetting } = storeToRefs(readerSettingStore);
 
 const fontColor = computed(() => {
-  const theme = setting.value.theme;
+  const theme = readerSetting.value.theme;
   if (theme.mode === 'custom') {
     return theme.fontColor;
   } else {
@@ -59,7 +58,7 @@ const fontColor = computed(() => {
 const underlineColor = computed(() => `${fontColor.value}80`);
 
 const textUnderlineOffset = computed(() => {
-  const fontSize = setting.value.fontSize;
+  const fontSize = readerSetting.value.fontSize;
   const offset = Math.round(fontSize / 4);
   return `${offset}px`;
 });
@@ -72,10 +71,10 @@ const textUnderlineOffset = computed(() => {
       :key="`${chapter.prevId}/${index}`"
     >
       <n-p v-if="p && 'text' in p" :aria-hidden="!p.needSpeak">
-        <span v-if="setting.enableSourceLabel && p.source" class="source">
+        <span v-if="readerSetting.enableSourceLabel && p.source" class="source">
           {{ p.source }}
         </span>
-        <span v-if="!setting.trimLeadingSpaces">
+        <span v-if="!readerSetting.trimLeadingSpaces">
           {{ p.indent }}
         </span>
         <span :class="[p.secondary ? 'second' : 'first', 'text-content']">
@@ -99,9 +98,9 @@ const textUnderlineOffset = computed(() => {
   min-height: 65vh;
 }
 #chapter-content p {
-  font-weight: v-bind('setting.fontWeight');
-  font-size: v-bind('`${setting.fontSize}px`');
-  margin: v-bind('`${setting.fontSize * setting.lineSpace}px 0`');
+  font-weight: v-bind('readerSetting.fontWeight');
+  font-size: v-bind('`${readerSetting.fontSize}px`');
+  margin: v-bind('`${readerSetting.fontSize * readerSetting.lineSpace}px 0`');
   color: v-bind('fontColor');
 }
 #chapter-content p .source {
@@ -114,16 +113,16 @@ const textUnderlineOffset = computed(() => {
   margin-right: 0.5em;
 }
 #chapter-content p .first {
-  opacity: v-bind('setting.mixZhOpacity');
+  opacity: v-bind('readerSetting.mixZhOpacity');
 }
 #chapter-content p .second {
-  opacity: v-bind('setting.mixJpOpacity');
+  opacity: v-bind('readerSetting.mixJpOpacity');
 }
 #chapter-content p .text-content {
   text-decoration-line: v-bind(
-    "setting.textUnderline === 'none' ? 'none' : 'underline'"
+    "readerSetting.textUnderline === 'none' ? 'none' : 'underline'"
   );
-  text-decoration-style: v-bind('setting.textUnderline');
+  text-decoration-style: v-bind('readerSetting.textUnderline');
   text-decoration-color: v-bind('underlineColor');
   text-decoration-thickness: 1px;
   text-underline-offset: v-bind('textUnderlineOffset');

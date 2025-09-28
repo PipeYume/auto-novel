@@ -1,17 +1,18 @@
 <script lang="ts" setup>
-import { ParsedFile } from '@/util/file';
+import type { ParsedFile } from '@/util/file';
 import { DeleteOutlineOutlined } from '@vicons/material';
 
-import { Locator } from '@/data';
-import { Translator, TranslatorConfig } from '@/domain/translate';
+import type { TranslatorConfig } from '@/domain/translate';
+import { Translator } from '@/domain/translate';
 import { Glossary } from '@/model/Glossary';
+import { useSakuraWorkspaceStore } from '@/stores';
 
 const props = defineProps<{
   files: ParsedFile[];
 }>();
 
 const message = useMessage();
-const sakuraWorkspace = Locator.sakuraWorkspaceRepository().ref;
+const sakuraWorkspace = useSakuraWorkspaceStore().ref;
 
 const countKatakana = (content: string) => {
   const regexp = /[\u30A0-\u30FF]{2,}/g;

@@ -1,11 +1,10 @@
 <script lang="ts" setup>
 import { LockOutlined, PlusOutlined, PushPinOutlined } from '@vicons/material';
 
-import { Locator } from '@/data';
-import { ArticleRepository } from '@/data/api';
-import { ArticleCategory, ArticleSimplified } from '@/model/Article';
+import { ArticleRepo } from '@/repos';
+import type { ArticleCategory, ArticleSimplified } from '@/model/Article';
 import { doAction } from '@/pages/util';
-import { runCatching } from '@/util/result';
+import { useBlacklistStore, useWhoamiStore } from '@/stores';
 
 const props = defineProps<{
   page: number;
@@ -16,10 +15,10 @@ const route = useRoute();
 const router = useRouter();
 const message = useMessage();
 
-const { whoami } = Locator.authRepository();
-const blockUserCommentRepository = Locator.blockUserCommentRepository();
-const isBlocked = (userName: string) =>
-  blockUserCommentRepository.ref.value.usernames.includes(userName);
+const whoamiStore = useWhoamiStore();
+const { whoami } = storeToRefs(whoamiStore);
+
+const blacklistStore = useBlacklistStore();
 
 const articleCategoryOptions = [
   { value: 'General', label: '小说交流' },
@@ -27,79 +26,65 @@ const articleCategoryOptions = [
   { value: 'Support', label: '反馈与建议' },
 ];
 
+const onUpdatePage = (page: number) => {
+  const query = { ...route.query, page };
+  router.push({ path: route.path, query });
+};
+
 const onUpdateCategory = (category: ArticleCategory) => {
   const query = { ...route.query, category, page: 1 };
   router.push({ path: route.path, query });
 };
 
-const loader = computed(() => {
-  const category = props.category;
-  return (page: number) =>
-    runCatching(
-      ArticleRepository.listArticle({
-        page,
-        pageSize: 20,
-        category,
-      }),
-    );
-});
+const { data: articlePage, error } = ArticleRepo.useArticleList(
+  () => props.page,
+  () => props.category,
+);
 
 const lockArticle = (article: ArticleSimplified) =>
   doAction(
-    ArticleRepository.lockArticle(article.id).then(
-      () => (article.locked = true),
-    ),
+    ArticleRepo.lockArticle(article.id).then(() => (article.locked = true)),
     '锁定',
     message,
   );
 
 const unlockArticle = (article: ArticleSimplified) =>
   doAction(
-    ArticleRepository.unlockArticle(article.id).then(
-      () => (article.locked = false),
-    ),
+    ArticleRepo.unlockArticle(article.id).then(() => (article.locked = false)),
     '解除锁定',
     message,
   );
 
 const pinArticle = (article: ArticleSimplified) =>
   doAction(
-    ArticleRepository.pinArticle(article.id).then(
-      () => (article.pinned = true),
-    ),
+    ArticleRepo.pinArticle(article.id).then(() => (article.pinned = true)),
     '置顶',
     message,
   );
 
 const unpinArticle = (article: ArticleSimplified) =>
   doAction(
-    ArticleRepository.unpinArticle(article.id).then(
-      () => (article.pinned = false),
-    ),
+    ArticleRepo.unpinArticle(article.id).then(() => (article.pinned = false)),
     '解除置顶',
     message,
   );
 
 const hideArticle = (article: ArticleSimplified) =>
   doAction(
-    ArticleRepository.hideArticle(article.id).then(
-      () => (article.hidden = true),
-    ),
+    ArticleRepo.hideArticle(article.id).then(() => (article.hidden = true)),
     '隐藏',
     message,
   );
 
 const unhideArticle = (article: ArticleSimplified) =>
   doAction(
-    ArticleRepository.unhideArticle(article.id).then(
-      () => (article.hidden = false),
-    ),
+    ArticleRepo.unhideArticle(article.id).then(() => (article.hidden = false)),
     '解除隐藏',
     message,
   );
 
 const deleteArticle = (article: ArticleSimplified) =>
-  doAction(ArticleRepository.deleteArticle(article.id), '删除', message);
+  doAction(ArticleRepo.deleteArticle(article.id), '删除', message);
 </script>
 
 <template>
@@ -122,8 +107,16 @@ const deleteArticle = (article: ArticleSimplified) =>
       />
     </c-action-wrapper>
 
-    <c-page :page="page" :loader="loader" v-slot="{ items }">
-      <n-table :bordered="false" style="margin-top: 24px">
+    <CPage
+      :page="page"
+      :page-number="articlePage?.pageNumber"
+      @update:page="onUpdatePage"
+    >
+      <n-table
+        v-if="articlePage"
+        :bordered="false"
+        style="margin-top: 24px; margin-bottom: 24px"
+      >
         <thead>
           <tr>
             <th><b>标题</b></th>
@@ -131,7 +124,7 @@ const deleteArticle = (article: ArticleSimplified) =>
           </tr>
         </thead>
         <tbody>
-          <tr v-for="article of items" :key="article.id">
+          <tr v-for="article of articlePage.items" :key="article.id">
             <td>
               <n-flex :size="2" align="center" :wrap="false">
                 <n-icon
@@ -147,7 +140,7 @@ const deleteArticle = (article: ArticleSimplified) =>
                 <c-a :to="`/forum/${article.id}`">
                   <n-text v-if="article.hidden" depth="3">[隐藏]</n-text>
                   <n-text
-                    v-else-if="isBlocked(article.user.username)"
+                    v-else-if="blacklistStore.isBlocked(article.user.username)"
                     depth="3"
                   >
                     [屏蔽]
@@ -161,7 +154,7 @@ const deleteArticle = (article: ArticleSimplified) =>
                 by {{ article.user.username }}
               </n-text>
 
-              <n-flex v-if="whoami.asMaintainer" style="margin-top: 4px">
+              <n-flex v-if="whoami.asAdmin" style="margin-top: 4px">
                 <c-button
                   v-if="article.locked"
                   size="tiny"
@@ -222,7 +215,9 @@ const deleteArticle = (article: ArticleSimplified) =>
           </tr>
         </tbody>
       </n-table>
-    </c-page>
+
+      <CResultX v-else :error="error" title="加载错误" />
+    </CPage>
   </div>
 </template>
 

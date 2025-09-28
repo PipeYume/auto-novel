@@ -1,18 +1,14 @@
 import { v4 as uuidv4 } from 'uuid';
 
-import { Locator, OpenAiError } from '@/data';
-import { Glossary } from '@/model/Glossary';
+import { createOpenAiApi, createOpenAiWebApi, OpenAiError } from '@/api';
+import type { Glossary } from '@/model/Glossary';
 import { delay, RegexUtil } from '@/util';
 
-import {
-  Logger,
-  SegmentContext,
-  SegmentTranslator,
-  createLengthSegmentor,
-} from './Common';
+import type { Logger, SegmentContext, SegmentTranslator } from './Common';
+import { createLengthSegmentor } from './Common';
 
-type OpenAi = ReturnType<typeof Locator.openAiRepositoryFactory>;
-type OpenAiWeb = ReturnType<typeof Locator.openAiWebRepositoryFactory>;
+type OpenAi = ReturnType<typeof createOpenAiApi>;
+type OpenAiWeb = ReturnType<typeof createOpenAiWebApi>;
 
 export class OpenAiTranslator implements SegmentTranslator {
   id = <const>'gpt';
@@ -27,9 +23,9 @@ export class OpenAiTranslator implements SegmentTranslator {
     this.log = log;
     this.model = model;
     if (type === 'web') {
-      this.api = Locator.openAiWebRepositoryFactory(endpoint, key);
+      this.api = createOpenAiWebApi(endpoint, key);
     } else {
-      this.api = Locator.openAiRepositoryFactory(endpoint, key);
+      this.api = createOpenAiApi(endpoint, key);
     }
   }
 
@@ -393,6 +389,7 @@ const askApiWeb = async (
       });
       try {
         const mapping = Object.values(conversation.mapping);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const obj: any = mapping[mapping.length - 1];
         if (obj.message.author.role === 'assistant') {
           answer = obj.message.content.parts[0];

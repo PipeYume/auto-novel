@@ -15,12 +15,12 @@ import {
   WbSunnyOutlined,
   WorkspacesOutlined,
 } from '@vicons/material';
-import { MenuOption, NButton, NIcon, NText, NTime, useOsTheme } from 'naive-ui';
+import type { MenuOption } from 'naive-ui';
+import { NButton, NIcon, NText, NTime, useOsTheme } from 'naive-ui';
 import { RouterLink } from 'vue-router';
 
-import { Locator } from '@/data';
-import { UserRole } from '@/model/User';
 import { useBreakPoints } from '@/pages/util';
+import { useSettingStore, useWhoamiStore } from '@/stores';
 
 const bp = useBreakPoints();
 const hasSider = bp.greater('tablet');
@@ -31,10 +31,12 @@ watch(hasSider, () => (showMenuModal.value = false));
 
 const route = useRoute();
 
-const authRepository = Locator.authRepository();
-const { whoami } = authRepository;
+const whoamiStore = useWhoamiStore();
+const { whoami } = storeToRefs(whoamiStore);
 
-const { setting } = Locator.settingRepository();
+const settingStore = useSettingStore();
+const { setting } = storeToRefs(settingStore);
+
 const menuCollapsed = computed(() => {
   if (menuShowTrigger.value) {
     return setting.value.menuCollapsed;
@@ -175,7 +177,7 @@ const menuOptions = computed<MenuOption[]>(() => {
       label: renderLabel('控制台', '/admin'),
       icon: renderIcon(CandlestickChartOutlined),
       key: '/admin',
-      show: whoami.value.asMaintainer,
+      show: whoami.value.asAdmin,
     },
   ];
 });
@@ -190,23 +192,14 @@ const menuKey = computed(() => {
   return path;
 });
 
-const roleToString = (role: UserRole) => {
-  if (role === 'normal') return '普通用户';
-  else if (role === 'trusted') return '信任用户';
-  else if (role === 'maintainer') return '维护者';
-  else if (role === 'admin') return '管理员';
-  else if (role === 'banned') return '封禁用户';
-  else return role satisfies never;
-};
-
 const userDropdownOptions = computed<MenuOption[]>(() => {
   const renderHeader = () =>
     h(
       'div',
       {
         onClick: () => {
-          if (whoami.value.isMaintainer) {
-            authRepository.toggleManageMode();
+          if (whoami.value.isAdmin) {
+            whoamiStore.toggleManageMode();
           }
         },
         style: {
@@ -220,9 +213,7 @@ const userDropdownOptions = computed<MenuOption[]>(() => {
             NText,
             { depth: 2 },
             {
-              default: () =>
-                roleToString(whoami.value.role!) +
-                (whoami.value.asMaintainer ? '+' : ''),
+              default: () => whoami.value.user.role,
             },
           ),
         ]),
@@ -233,7 +224,7 @@ const userDropdownOptions = computed<MenuOption[]>(() => {
             {
               default: () =>
                 h(NTime, {
-                  time: whoami.value.createAt! * 1000,
+                  time: whoami.value.user.createAt * 1000,
                   type: 'date',
                 }),
             },
@@ -253,14 +244,14 @@ const userDropdownOptions = computed<MenuOption[]>(() => {
     },
     {
       label: '退出账号',
-      key: 'sign-out',
+      key: 'logout',
       icon: renderIcon(LogOutOutlined),
     },
   ];
 });
 const handleUserDropdownSelect = (key: string | number) => {
-  if (key === 'sign-out') {
-    authRepository.signOut();
+  if (key === 'logout') {
+    whoamiStore.logout();
   }
 };
 
@@ -310,13 +301,13 @@ watch(
             @select="handleUserDropdownSelect"
           >
             <n-button :focusable="false" quaternary>
-              @{{ whoami.username }}
+              @{{ whoami.user.username }}
             </n-button>
           </n-dropdown>
 
           <router-link
             v-else
-            :to="{ name: 'sign-in', query: { from: route.fullPath } }"
+            :to="{ name: 'auth', query: { from: route.fullPath } }"
           >
             <n-button quaternary>登录/注册</n-button>
           </router-link>

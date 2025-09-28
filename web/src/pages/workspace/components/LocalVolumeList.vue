@@ -1,14 +1,12 @@
 <script lang="ts" setup>
 import { FileDownloadOutlined, MoreVertOutlined } from '@vicons/material';
 
-import { Locator } from '@/data';
-import { Setting } from '@/data/setting/Setting';
-import { LocalVolumeMetadata } from '@/model/LocalVolume';
-
+import type { LocalVolumeMetadata } from '@/model/LocalVolume';
 import {
   BookshelfLocalUtil,
   useBookshelfLocalStore,
 } from '@/pages/bookshelf/BookshelfLocalStore';
+import { FavoredRepo, Setting, useSettingStore } from '@/stores';
 
 const props = defineProps<{
   options?: { [key: string]: (volumes: LocalVolumeMetadata[]) => void };
@@ -20,7 +18,9 @@ const emit = defineEmits<{
 }>();
 
 const message = useMessage();
-const { setting } = Locator.settingRepository();
+
+const settingStore = useSettingStore();
+const { setting } = storeToRefs(settingStore);
 
 const store = useBookshelfLocalStore();
 const { volumes } = storeToRefs(store);
@@ -76,8 +76,9 @@ const search = reactive({
   enableRegexMode: false,
 });
 
-const favoredRepository = Locator.favoredRepository();
-const favoreds = favoredRepository.favoreds;
+const favoredStore = FavoredRepo.useFavoredStore();
+const { favoreds } = storeToRefs(favoredStore);
+
 const selectedFavored = ref<string | undefined>(favoreds.value.local[0]?.id);
 const favoredsOptions = computed(() => {
   return favoreds.value.local.map(({ id, title }) => ({

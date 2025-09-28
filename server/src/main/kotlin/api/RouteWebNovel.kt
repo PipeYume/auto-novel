@@ -6,17 +6,18 @@ import api.plugins.*
 import infra.common.*
 import infra.oplog.Operation
 import infra.oplog.OperationHistoryRepository
-import infra.user.User
 import infra.user.UserFavoredRepository
 import infra.web.*
+import infra.web.datasource.providers.Hameln
+import infra.web.datasource.providers.Kakuyomu
 import infra.web.datasource.providers.NovelIdShouldBeReplacedException
+import infra.web.datasource.providers.Pixiv
 import infra.web.datasource.providers.Syosetu
 import infra.web.repository.*
 import infra.wenku.repository.WenkuNovelMetadataRepository
 import io.ktor.http.*
 import io.ktor.http.content.*
 import io.ktor.resources.*
-import io.ktor.server.application.*
 import io.ktor.server.plugins.*
 import io.ktor.server.plugins.cachingheaders.*
 import io.ktor.server.request.*
@@ -24,7 +25,6 @@ import io.ktor.server.resources.*
 import io.ktor.server.resources.post
 import io.ktor.server.resources.put
 import io.ktor.server.routing.*
-import io.ktor.server.util.*
 import io.ktor.util.*
 import kotlinx.serialization.Serializable
 import org.bson.types.ObjectId
@@ -273,9 +273,44 @@ fun Route.routeWebNovel() {
 private fun throwNovelNotFound(): Nothing =
     throwNotFound("小说不存在")
 
+private val disgustingFascistNovelList = mapOf(
+    Syosetu.id to listOf(
+        "n0646ie",
+        "n8926ic",
+        "n4583he",
+        "n6465co",
+        "n4357cw",
+        "n9603hk",
+        "n5149kv",
+    ),
+    Kakuyomu.id to listOf(
+        "16816927860373250234",
+        "16817330660019717771",
+        "1177354054901629921",
+        "16818093082836701336",
+        "16817330661737648260",
+        "16818622170290655590",
+        "16818093088081078289",
+    ),
+    Hameln.id to listOf(
+        "291561",
+        "1472",
+        "363542",
+        "67369",
+    ),
+    Pixiv.id to listOf(
+        "12802876",
+    ),
+)
+
 private fun validateId(providerId: String, novelId: String) {
     if (providerId == Syosetu.id && novelId != novelId.lowercase()) {
         throw BadRequestException("成为小说家id应当小写")
+    }
+    disgustingFascistNovelList.get(providerId)?.let {
+        if (novelId in it) {
+            throw BadRequestException("该小说包含法西斯内容，不予显示")
+        }
     }
 }
 

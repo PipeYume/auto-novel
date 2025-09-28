@@ -3,10 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <title>轻小说机翻机器人</title>
-    <meta
-      name="description"
-      content="轻小说机翻机器人是一个能自动生成轻小说译文并分享的网站。在这里，你可以浏览日文网络小说/文库小说，也可以上传自己的小说文件进行机器翻译。"
-    />
+    <meta name="description" content="一个能自动生成并分享轻小说译文的网站" />
     <link rel="icon" href="/favicon.ico" sizes="32x32" />
     <link rel="icon" href="/icon.svg" type="image/svg+xml" />
     <meta
@@ -15,7 +12,6 @@
     />
     <meta name="renderer" content="webkit" />
     <meta name="force-rendering" content="webkit" />
-    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" />
     <meta name="theme-color" content="white" />
     <script
       async
@@ -28,17 +24,6 @@
       }
       gtag('js', new Date());
       gtag('config', 'G-QD8MZ90XFJ');
-    </script>
-    <script>
-      window.onerror = function (msg, url, lno, cno) {
-        var div = document.createElement('div');
-        div.innerHTML = `Error: ${lno}:${cno} ${msg
-          .replace('<', '&lt;')
-          .replace('>', '&gt;')} ${url}`;
-        div.style.position = 'fixed';
-        document.body.appendChild(div);
-        return false;
-      };
     </script>
     <script>
       (() => {
@@ -97,11 +82,17 @@
     </script>
   </head>
   <body>
+    <div id="fallback-error" style="position: fixed; height: 100vh"></div>
+    <script>
+      window.onerror = function (msg, url, line, col) {
+        var div = document.createElement('div');
+        div.innerText = `Error: ${line}:${col} ${msg} ${url}`;
+        document.getElementById('fallback-error').appendChild(div);
+        return false;
+      };
+    </script>
     <div id="app"></div>
     <script type="module" src="/src/main.ts"></script>
-    <noscript>
-      <p>本页面需要浏览器启用JavaScript。</p>
-      <p>如果已经启用，那...朋友，你该更新浏览器了。</p>
-    </noscript>
+    <noscript>本页面需要浏览器启用JavaScript</noscript>
   </body>
 </html>

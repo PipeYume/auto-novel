@@ -1,10 +1,13 @@
 <script lang="ts" setup>
 import { useKeyModifier } from '@vueuse/core';
 
-import { Locator } from '@/data';
-import { Setting } from '@/data/setting/Setting';
-
 import { useIsWideScreen } from '@/pages/util';
+import {
+  FavoredRepo,
+  Setting,
+  useLocalVolumeStore,
+  useSettingStore,
+} from '@/stores';
 import { useBookshelfLocalStore } from '../BookshelfLocalStore';
 
 const props = defineProps<{
@@ -19,7 +22,8 @@ defineEmits<{
 const message = useMessage();
 const isWideScreen = useIsWideScreen(600);
 
-const { setting } = Locator.settingRepository();
+const settingStore = useSettingStore();
+const { setting } = storeToRefs(settingStore);
 
 const store = useBookshelfLocalStore();
 
@@ -65,7 +69,8 @@ const downloadRawSelected = async () => {
 };
 
 // 移动小说
-const { favoreds } = Locator.favoredRepository();
+const favoredStore = FavoredRepo.useFavoredStore();
+const { favoreds } = storeToRefs(favoredStore);
 
 const targetFavoredId = ref(props.favoredId);
 
@@ -81,7 +86,7 @@ const moveToFavored = async () => {
     return;
   }
 
-  const localVolumeRepository = await Locator.localVolumeRepository();
+  const localVolumeRepository = await useLocalVolumeStore();
 
   let failed = 0;
   for (const volumeId of novels) {
@@ -183,7 +188,7 @@ const queueJobs = (type: 'gpt' | 'sakura') => {
           </c-modal>
         </n-flex>
 
-        <n-text depth="3"> 已选择{{ selectedIds.length }}本小说 </n-text>
+        <n-text depth="3">已选择{{ selectedIds.length }}本小说</n-text>
       </n-flex>
     </n-list-item>
 
@@ -240,8 +245,10 @@ const queueJobs = (type: 'gpt' | 'sakura') => {
                   />
                 </n-flex>
               </template>
-              过期：翻译术语表过期的章节<br />
-              重翻：重翻全部章节<br />
+              过期：翻译术语表过期的章节
+              <br />
+              重翻：重翻全部章节
+              <br />
             </n-tooltip>
 
             <tag-button label="倒序添加" v-model:checked="reverseOrder" />

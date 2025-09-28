@@ -1,87 +1,54 @@
 <script lang="ts" setup>
 import { PlusOutlined } from '@vicons/material';
 
-import { Locator } from '@/data';
-import { WenkuNovelRepository } from '@/data/api';
-import { WenkuNovelOutlineDto } from '@/model/WenkuNovel';
-import { runCatching } from '@/util/result';
+import { WenkuNovelRepo } from '@/repos';
+import { FavoredRepo, useWhoamiStore } from '@/stores';
+import type { WenkuListValue } from './option';
+import { getWenkuListOptions, onUpdateListValue, onUpdatePage } from './option';
 
-import { Loader } from './components/NovelPage.vue';
-
-defineProps<{
+const props = defineProps<{
   page: number;
   query: string;
   selected: number[];
 }>();
 
-const route = useRoute();
+const whoamiStore = useWhoamiStore();
+const { whoami } = storeToRefs(whoamiStore);
 
-const { whoami } = Locator.authRepository();
+const favoredStore = FavoredRepo.useFavoredStore();
+const { favoreds } = storeToRefs(favoredStore);
 
-const options = [
-  {
-    label: '分级',
-    tags: whoami.value.allowNsfw
-      ? ['一般向', '成人向', '严肃向']
-      : ['一般向', '严肃向'],
-  },
-];
+const listOptions = getWenkuListOptions(whoami.value.allowNsfw);
 
-const favoredRepository = Locator.favoredRepository();
-onMounted(() => favoredRepository.loadRemoteFavoreds());
-
-const loader: Loader<WenkuNovelOutlineDto> = (page, query, selected) => {
-  if (query !== '') {
-    document.title = '文库小说 搜索：' + query;
-  }
-  let level = selected[0] + 1;
-  if (!whoami.value.allowNsfw && level === 2) {
-    level = 3;
-  }
-  return runCatching(
-    WenkuNovelRepository.listNovel({
-      page,
-      pageSize: 24,
-      query,
-      level,
-    }).then((page) => {
-      const favoredIds = favoredRepository.favoreds.value.wenku.map(
-        (it) => it.id,
-      );
-      for (const item of page.items) {
-        if (item.favored && !favoredIds.includes(item.favored)) {
-          item.favored = undefined;
-        }
-      }
-      return page;
-    }),
-  );
-};
-
-const wenkuSearchHistoryRepository = Locator.wenkuSearchHistoryRepository();
-
-const search = computed(() => {
-  const searchHistory = wenkuSearchHistoryRepository.ref.value;
-  return {
-    suggestions: searchHistory.queries,
-    tags: searchHistory.tags
-      .sort((a, b) => Math.log2(b.used) - Math.log2(a.used))
-      .map((it) => it.tag)
-      .slice(0, 8),
-  };
-});
-
-watch(
-  route,
-  async (route) => {
-    let query = '';
-    if (typeof route.query.query === 'string') {
-      query = route.query.query;
-    }
-    wenkuSearchHistoryRepository.addHistory(query);
-  },
-  { immediate: true },
+const listValue = computed(
+  () =>
+    <WenkuListValue>{
+      搜索: props.query,
+      分级: props.selected[0] ?? 0,
+    },
 );
+
+const { data: novelPage, error } = WenkuNovelRepo.useWenkuNovelList(
+  () => props.page,
+  () => ({
+    query: listValue.value.搜索,
+    level:
+      listValue.value.分级 == 0 || whoami.value.allowNsfw
+        ? listValue.value.分级 + 1
+        : listValue.value.分级 + 2,
+  }),
+);
+
+watch(novelPage, (novelPage) => {
+  if (novelPage) {
+    const favoredIds = favoreds.value.wenku.map((it) => it.id);
+    for (const item of novelPage.items) {
+      if (item.favored && !favoredIds.includes(item.favored)) {
+        item.favored = undefined;
+      }
+    }
+  }
+});
 </script>
 
 <template>
@@ -96,17 +63,26 @@ watch(
       />
     </router-link>
 
-    <novel-page
+    <ListFilter
+      :options="listOptions"
+      :value="listValue"
+      @update:value="onUpdateListValue(listOptions, $event)"
+    />
+
+    <CPage
       :page="page"
-      :query="query"
-      :selected="selected"
-      :loader="loader"
-      :search="search"
-      :options="options"
-      v-slot="{ items }"
+      :page-number="novelPage?.pageNumber"
+      @update:page="onUpdatePage"
     >
-      <novel-list-wenku :items="items" />
-    </novel-page>
+      <template v-if="novelPage">
+        <n-divider />
+        <NovelListWenku :items="novelPage.items" />
+        <n-empty v-if="novelPage.items.length === 0" description="空列表" />
+        <n-divider />
+      </template>
+
+      <CResultX v-else :error="error" title="加载错误" />
+    </CPage>
   </div>
 </template>
 

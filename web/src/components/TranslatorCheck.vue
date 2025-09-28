@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { TranslatorId } from '@/model/Translator';
+import type { TranslatorId } from '@/model/Translator';
 
 const props = defineProps<{
   value: TranslatorId[];
@@ -42,6 +42,7 @@ const calculateTranslatorOrderLabel = (id: TranslatorId) => {
   <n-button-group>
     <n-button
       v-for="option in translationOptions"
+      :key="option.value"
       :focusable="false"
       ghost
       :type="value.includes(option.value) ? 'primary' : 'default'"

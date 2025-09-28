@@ -1,8 +1,8 @@
 <script lang="ts" setup>
-import { FormInst, FormItemRule, FormRules } from 'naive-ui';
+import type { FormInst, FormItemRule, FormRules } from 'naive-ui';
 
-import { Locator } from '@/data';
-import { SakuraWorker } from '@/model/Translator';
+import type { SakuraWorker } from '@/model/Translator';
+import { useSakuraWorkspaceStore } from '@/stores';
 
 const props = defineProps<{
   show: boolean;
@@ -12,7 +12,7 @@ const emit = defineEmits<{
   'update:show': [boolean];
 }>();
 
-const workspace = Locator.sakuraWorkspaceRepository();
+const workspace = useSakuraWorkspaceStore();
 const workspaceRef = workspace.ref;
 
 const initFormValue = () => {
@@ -29,7 +29,7 @@ const initFormValue = () => {
   }
 };
 
-const formRef = ref<FormInst>();
+const formRef = useTemplateRef<FormInst>('form');
 const formValue = ref(initFormValue());
 const formRules: FormRules = {
   id: [
@@ -102,7 +102,7 @@ const verb = computed(() => (props.worker === undefined ? '添加' : '更新'));
     :title="verb + 'Sakura翻译器'"
   >
     <n-form
-      ref="formRef"
+      ref="form"
       :model="formValue"
       :rules="formRules"
       label-placement="left"

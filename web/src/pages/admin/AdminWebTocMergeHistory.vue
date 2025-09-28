@@ -1,8 +1,9 @@
 <script lang="ts" setup>
-import { OperationRepository } from '@/data/api';
-import { Result, runCatching } from '@/util/result';
-import { MergeHistoryDto } from '@/model/Operation';
-import { Page } from '@/model/Page';
+import { OperationApi } from '@/api';
+import type { Result } from '@/util/result';
+import { runCatching } from '@/util/result';
+import type { MergeHistoryDto } from '@/model/Operation';
+import type { Page } from '@/model/Page';
 import { doAction } from '@/pages/util';
 
 const message = useMessage();
@@ -14,7 +15,7 @@ const novelPage = ref<Result<Page<MergeHistoryDto>>>();
 const loadPage = async (page: number) => {
   novelPage.value = undefined;
   const result = await runCatching(
-    OperationRepository.listMergeHistory(currentPage.value - 1),
+    OperationApi.listMergeHistory(currentPage.value - 1),
   );
   if (currentPage.value == page) {
     novelPage.value = result;
@@ -26,7 +27,7 @@ const loadPage = async (page: number) => {
 
 const deleteDetail = (id: string) =>
   doAction(
-    OperationRepository.deleteMergeHistory(id).then(() => {
+    OperationApi.deleteMergeHistory(id).then(() => {
       if (novelPage.value?.ok) {
         novelPage.value.value.items = novelPage.value.value.items.filter(
           (it) => it.id !== id,
@@ -77,7 +78,7 @@ watch(currentPage, (page) => loadPage(page), { immediate: true });
   />
   <n-divider />
   <div v-if="novelPage?.ok">
-    <div v-for="item in novelPage.value.items">
+    <div v-for="item in novelPage.value.items" :key="item.id">
       <n-p>
         <c-a :to="`/novel/${item.providerId}/${item.novelId}`">
           {{ `${item.providerId}/${item.novelId}` }}
@@ -90,7 +91,10 @@ watch(currentPage, (page) => loadPage(page), { immediate: true });
           <th>旧目录</th>
           <th>新目录</th>
         </tr>
-        <tr v-for="t of diffToc(item)">
+        <tr
+          v-for="t of diffToc(item)"
+          :key="'' + t.oldV?.chapterId + t.newV?.chapterId"
+        >
           <td :style="{ color: t.same ? 'grey' : 'red' }">
             {{ t.oldV?.titleJp }}
             <br />

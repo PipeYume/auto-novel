@@ -1,9 +1,8 @@
 <script lang="ts" setup>
 import { FavoriteBorderOutlined, FavoriteOutlined } from '@vicons/material';
 
-import { Locator } from '@/data';
-
 import { doAction } from '@/pages/util';
+import { FavoredRepo } from '@/stores';
 
 const props = defineProps<{
   favored: string | undefined;
@@ -17,29 +16,17 @@ const emit = defineEmits<{
 
 const message = useMessage();
 
-const { whoami } = Locator.authRepository();
-const favoredRepository = Locator.favoredRepository();
+const favoredStore = FavoredRepo.useFavoredStore();
+const { favoreds: favoredFull } = storeToRefs(favoredStore);
 
-onMounted(async () => {
-  if (whoami.value.isSignedIn) {
-    try {
-      await favoredRepository.loadRemoteFavoreds();
-    } catch (e) {
-      message.error(`获取收藏列表失败：${e}`);
-    }
-  }
-});
-
-const favoreds = computed(
-  () => favoredRepository.favoreds.value[props.novel.type],
-);
+const favoreds = computed(() => favoredFull.value[props.novel.type]);
 const favoredTitle = computed(
   () => favoreds.value.find((it) => it.id === props.favored)?.title,
 );
 
 const favoriteNovel = (favoredId: string) =>
   doAction(
-    favoredRepository.favoriteNovel(favoredId, props.novel).then(() => {
+    FavoredRepo.favoriteNovel(favoredId, props.novel).then(() => {
       emit('update:favored', favoredId);
       showFavoredModal.value = false;
     }),
@@ -50,7 +37,7 @@ const favoriteNovel = (favoredId: string) =>
 const unfavoriteNovel = async () => {
   if (props.favored === undefined) return;
   await doAction(
-    favoredRepository.unfavoriteNovel(props.favored, props.novel).then(() => {
+    FavoredRepo.unfavoriteNovel(props.favored, props.novel).then(() => {
       emit('update:favored', undefined);
       showFavoredModal.value = false;
     }),

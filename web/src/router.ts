@@ -1,4 +1,5 @@
-import { LocationQuery, createRouter, createWebHistory } from 'vue-router';
+import type { LocationQuery } from 'vue-router';
+import { createRouter, createWebHistory } from 'vue-router';
 
 const parseSelected = (q: LocationQuery) => {
   const selected = <number[]>[];
@@ -17,20 +18,13 @@ const router = createRouter({
   routes: [
     {
       path: '/*',
-      component: () => import('./pages/auth/AuthLayout.vue'),
       children: [
         {
-          path: '/sign-in',
-          name: 'sign-in',
-          meta: { title: '登录' },
-          component: () => import('./pages/auth/SignIn.vue'),
+          path: '/auth',
+          name: 'auth',
+          meta: { title: '统一身份认证' },
+          component: () => import('./pages/Auth.vue'),
           props: (route) => ({ from: route.query.from }),
-        },
-        {
-          path: '/reset-password',
-          name: 'reset-password',
-          meta: { title: '重置密码' },
-          component: () => import('./pages/auth/ResetPassword.vue'),
         },
       ],
     },
@@ -263,7 +257,12 @@ const router = createRouter({
           children: [
             {
               path: 'user',
-              component: () => import('./pages/admin/AdminUserManagement.vue'),
+              component: () => import('./pages/admin/AdminUser.vue'),
+              props: (route) => ({
+                page: Number(route.query.page) || 1,
+                query: route.query.query || '',
+                selected: parseSelected(route.query),
+              }),
             },
             {
               path: 'operation',
@@ -309,13 +308,21 @@ const router = createRouter({
 router.afterEach((to, from) => {
   // 章节之间标题依靠手动切换，这里跳过
   if (!(to.meta.isReader && from.meta.isReader)) {
-    const defaultTitle = '轻小说机翻机器人';
-    const title = to.meta.title;
-    if (title !== undefined) {
-      document.title = title + ' | ' + defaultTitle;
-    } else {
-      document.title = defaultTitle;
+    const titleParts = [];
+
+    if (to.meta.title) {
+      titleParts.push(to.meta.title);
     }
+    if (to.query.query) {
+      titleParts.push(`搜索:${to.query.query}`);
+    }
+    if (titleParts.length > 0) {
+      titleParts.push('|');
+    }
+
+    titleParts.push('轻小说机翻机器人');
+
+    document.title = titleParts.join(' ');
   }
 });
 

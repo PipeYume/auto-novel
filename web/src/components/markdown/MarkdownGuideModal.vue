@@ -11,7 +11,7 @@ const guides = [
 **粗体**
 *斜体*
 ~~删除线~~
-[链接](https://books.fishhawk.top)`,
+[链接](https://www.esjzone.cc/)`,
 
   `
 - 无序列表
@@ -51,7 +51,7 @@ const guides = [
         </tr>
       </thead>
       <tbody>
-        <tr v-for="guide in guides">
+        <tr v-for="guide in guides" :key="guide">
           <td style="white-space: pre-wrap">
             {{ guide.trimStart() }}
           </td>

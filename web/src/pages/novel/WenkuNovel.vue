@@ -2,13 +2,11 @@
 import { EditNoteOutlined, LanguageOutlined } from '@vicons/material';
 import { createReusableTemplate } from '@vueuse/core';
 
-import { Locator } from '@/data';
+import { WenkuNovelRepo } from '@/repos';
 import coverPlaceholder from '@/image/cover_placeholder.png';
 import { GenericNovelId } from '@/model/Common';
 import { doAction, useIsWideScreen } from '@/pages/util';
-
-import { useWenkuNovelStore } from './WenkuNovelStore';
-import TranslateOptions from './components/TranslateOptions.vue';
+import { useSettingStore, useWhoamiStore } from '@/stores';
 
 const { novelId } = defineProps<{ novelId: string }>();
 
@@ -21,22 +19,24 @@ const isWideScreen = useIsWideScreen(600);
 const message = useMessage();
 const vars = useThemeVars();
 
-const { setting } = Locator.settingRepository();
-const { whoami } = Locator.authRepository();
+const settingStore = useSettingStore();
+const { setting } = storeToRefs(settingStore);
 
-const store = useWenkuNovelStore(novelId);
-const { novelResult } = storeToRefs(store);
+const whoamiStore = useWhoamiStore();
+const { whoami } = storeToRefs(whoamiStore);
 
-store.loadNovel().then((result) => {
-  if (result?.ok) {
-    document.title = result.value.title;
+const { data: novel, error } = WenkuNovelRepo.useWenkuNovel(novelId);
+
+watch(novel, (novel) => {
+  if (novel) {
+    document.title = novel.title;
   }
 });
 
-const translateOptions = ref<InstanceType<typeof TranslateOptions>>();
+const translateOptions = useTemplateRef('translateOptions');
 
 const deleteVolume = (volumeId: string) =>
-  doAction(store.deleteVolume(volumeId), '删除', message);
+  doAction(WenkuNovelRepo.deleteVolume(novelId, volumeId), '删除', message);
 
 const buildSearchLink = (tag: string) => `/wenku?query="${tag}"`;
 
@@ -50,7 +50,7 @@ const showWebNovelsModal = ref(false);
         {{ label }}
       </n-tag>
       <n-flex :size="[4, 4]">
-        <router-link v-for="tag of tags" :to="buildSearchLink(tag)">
+        <router-link v-for="tag of tags" :key="tag" :to="buildSearchLink(tag)">
           <novel-tag :tag="tag" />
         </router-link>
       </n-flex>
@@ -58,9 +58,9 @@ const showWebNovelsModal = ref(false);
   </DefineTagGroup>
 
   <div
-    v-if="novelResult?.ok"
+    v-if="novel"
     :style="{
-      background: `url(${novelResult.value.cover})`,
+      background: `url(${novel.cover})`,
     }"
     style="
       width: 100%;
@@ -82,11 +82,7 @@ const showWebNovelsModal = ref(false);
           <div>
             <n-image
               width="160"
-              :src="
-                novelResult.value.cover
-                  ? novelResult.value.cover
-                  : coverPlaceholder
-              "
+              :src="novel.cover ? novel.cover : coverPlaceholder"
               alt="cover"
               show-toolbar-tooltip
               style="border-radius: 2px"
@@ -99,21 +95,17 @@ const showWebNovelsModal = ref(false);
               :style="{ 'font-size': isWideScreen ? '22px' : '18px' }"
             >
               <b>
-                {{
-                  novelResult.value.titleZh
-                    ? novelResult.value.titleZh
-                    : novelResult.value.title
-                }}
+                {{ novel.titleZh ? novel.titleZh : novel.title }}
               </b>
             </n-h2>
 
-            <ReuseTagGroup label="作者" :tags="novelResult.value.authors" />
-            <ReuseTagGroup label="画师" :tags="novelResult.value.artists" />
+            <ReuseTagGroup label="作者" :tags="novel.authors" />
+            <ReuseTagGroup label="画师" :tags="novel.artists" />
             <ReuseTagGroup
               label="出版"
               :tags="[
-                novelResult.value.publisher ?? '未知出版商',
-                novelResult.value.imprint ?? '未知文库',
+                novel.publisher ?? '未知出版商',
+                novel.imprint ?? '未知文库',
               ]"
             />
           </n-flex>
@@ -123,7 +115,7 @@ const showWebNovelsModal = ref(false);
   </div>
 
   <div class="layout-content">
-    <c-result :result="novelResult" v-slot="{ value: metadata }">
+    <template v-if="novel">
       <n-flex>
         <router-link
           v-if="whoami.allowAdvancedFeatures"
@@ -133,12 +125,12 @@ const showWebNovelsModal = ref(false);
         </router-link>
 
         <favorite-button
-          v-model:favored="metadata.favored"
+          v-model:favored="novel.favored"
           :novel="{ type: 'wenku', novelId }"
         />
 
         <c-button
-          v-if="metadata.webIds.length > 0"
+          v-if="novel.webIds.length > 0"
           label="网络"
           :icon="LanguageOutlined"
           @action="showWebNovelsModal = true"
@@ -150,7 +142,7 @@ const showWebNovelsModal = ref(false);
           :extra-height="100"
         >
           <n-ul>
-            <n-li v-for="webId of metadata.webIds">
+            <n-li v-for="webId of novel.webIds" :key="webId">
               <c-a :to="`/novel/${webId}`">
                 {{ webId }}
               </c-a>
@@ -159,28 +151,31 @@ const showWebNovelsModal = ref(false);
         </c-modal>
       </n-flex>
 
-      <n-p>原名：{{ metadata.title }}</n-p>
-      <n-p v-if="metadata.latestPublishAt">
+      <n-p>原名：{{ novel.title }}</n-p>
+      <n-p v-if="novel.latestPublishAt">
         最新出版于
-        <n-time :time="metadata.latestPublishAt * 1000" type="date" />
+        <n-time :time="novel.latestPublishAt * 1000" type="date" />
       </n-p>
-      <n-p v-html="metadata.introduction.replace(/\n/g, '<br />')" />
+      <!-- eslint-disable-next-line vue/no-v-html -->
+      <n-p v-html="novel.introduction.replace(/\n/g, '<br />')" />
 
       <n-flex :size="[4, 4]">
         <router-link
-          v-for="keyword of metadata.keywords"
+          v-for="keyword of novel.keywords"
+          :key="keyword"
           :to="`/wenku?query=${keyword}\$`"
         >
           <novel-tag :tag="keyword" />
         </router-link>
       </n-flex>
 
-      <template v-if="metadata.volumes.length">
+      <template v-if="novel.volumes.length">
         <c-x-scrollbar style="margin-top: 16px">
           <n-image-group show-toolbar-tooltip>
             <n-flex :size="4" :wrap="false" style="margin-bottom: 16px">
               <n-image
-                v-for="volume of metadata.volumes"
+                v-for="volume of novel.volumes"
+                :key="volume.asin"
                 width="104"
                 :src="volume.cover"
                 :preview-src="volume.coverHires ?? volume.cover"
@@ -195,21 +190,18 @@ const showWebNovelsModal = ref(false);
 
       <section-header title="目录" />
       <template v-if="whoami.isSignedIn">
-        <upload-button :allow-zh="whoami.isMaintainer" :novel-id="novelId" />
+        <upload-button :allow-zh="whoami.isAdmin" :novel-id="novelId" />
 
-        <translate-options
+        <TranslateOptions
           ref="translateOptions"
           :gnid="GenericNovelId.wenku(novelId)"
-          :glossary="metadata.glossary"
+          :glossary="novel.glossary"
           style="margin-top: 16px"
         />
         <n-divider style="margin: 16px 0 0" />
 
         <n-list>
-          <n-list-item
-            v-for="volume of metadata.volumeJp"
-            :key="volume.volumeId"
-          >
+          <n-list-item v-for="volume of novel.volumeJp" :key="volume.volumeId">
             <WenkuVolume
               :novel-id="novelId"
               :volume="volume"
@@ -219,11 +211,11 @@ const showWebNovelsModal = ref(false);
           </n-list-item>
         </n-list>
 
-        <template v-if="whoami.isMaintainer">
+        <template v-if="whoami.isAdmin">
           <n-divider style="margin: 0" />
 
           <n-ul>
-            <n-li v-for="volumeId in metadata.volumeZh" :key="volumeId">
+            <n-li v-for="volumeId in novel.volumeZh" :key="volumeId">
               <n-a
                 :href="`/files-wenku/${novelId}/${encodeURIComponent(volumeId)}`"
                 target="_blank"
@@ -233,7 +225,7 @@ const showWebNovelsModal = ref(false);
               </n-a>
 
               <c-button-confirm
-                v-if="whoami.asMaintainer"
+                v-if="whoami.asAdmin"
                 :hint="`真的要删除《${volumeId}》吗？`"
                 label="删除"
                 text
@@ -246,17 +238,15 @@ const showWebNovelsModal = ref(false);
         </template>
 
         <n-empty
-          v-if="
-            metadata.volumeJp.length === 0 && metadata.volumeZh.length === 0
-          "
+          v-if="novel.volumeJp.length === 0 && novel.volumeZh.length === 0"
           description="请不要创建一个空页面"
         />
 
         <n-empty
           v-if="
-            !whoami.isMaintainer &&
-            metadata.volumeJp.length === 0 &&
-            metadata.volumeZh.length > 0
+            !whoami.isAdmin &&
+            novel.volumeJp.length === 0 &&
+            novel.volumeZh.length > 0
           "
           description="网站已撤下中文小说板块，请上传日文生成翻译"
         />
@@ -268,6 +258,13 @@ const showWebNovelsModal = ref(false);
         :site="`wenku-${novelId}`"
         :locked="false"
       />
-    </c-result>
+    </template>
+
+    <n-result
+      v-else-if="error"
+      status="error"
+      title="加载错误"
+      :description="error.message"
+    />
   </div>
 </template>

@@ -1,29 +1,28 @@
 <script lang="ts" setup>
 import { UploadOutlined } from '@vicons/material';
-import { FormInst, FormItemRule, FormRules } from 'naive-ui';
+import type { FormInst, FormItemRule, FormRules } from 'naive-ui';
 
-import { Locator } from '@/data';
-import { ArticleCategory } from '@/model/Article';
-
+import { ArticleRepo } from '@/repos';
+import type { ArticleCategory } from '@/model/Article';
 import { doAction, useIsWideScreen } from '@/pages/util';
-import { useArticleStore } from './ForumArticleStore';
+import { useDraftStore, useWhoamiStore } from '@/stores';
 
 const { articleId, category } = defineProps<{
-  articleId?: string;
-  category?: ArticleCategory;
+  articleId: string | undefined;
+  category: ArticleCategory | undefined;
 }>();
 
 const router = useRouter();
 const isWideScreen = useIsWideScreen();
 const message = useMessage();
 
-const { whoami } = Locator.authRepository();
-const draftRepo = Locator.draftRepository();
+const whoamiStore = useWhoamiStore();
+const { whoami } = storeToRefs(whoamiStore);
+
+const draftStore = useDraftStore();
 const draftId = `article-${articleId ?? 'new'}`;
 
-const store = articleId !== undefined ? useArticleStore(articleId) : undefined;
-
-const articleCategoryOptions = whoami.value.asMaintainer
+const articleCategoryOptions = whoami.value.asAdmin
   ? [
       { value: 'General', label: '小说交流' },
       { value: 'Guide', label: '使用指南' },
@@ -35,11 +34,11 @@ const articleCategoryOptions = whoami.value.asMaintainer
     ];
 
 const allowSubmit = ref(articleId === undefined);
-const formRef = ref<FormInst>();
+const formRef = useTemplateRef<FormInst>('form');
 const formValue = ref({
   title: '',
   content: '',
-  category,
+  category: category ?? 'General',
 });
 const formRules: FormRules = {
   title: [
@@ -78,19 +77,22 @@ const formRules: FormRules = {
   ],
 };
 
-store?.loadArticle()?.then((result) => {
-  if (result.ok) {
-    const { title, content, category } = result.value;
-    formValue.value = {
-      title,
-      content,
-      category,
-    };
-    allowSubmit.value = true;
-  } else {
-    message.error('载入失败');
-  }
-});
+if (articleId !== undefined) {
+  ArticleRepo.useArticle(articleId, true)
+    .refresh()
+    .then(({ data, error }) => {
+      if (data) {
+        formValue.value = {
+          title: data.title,
+          content: data.content,
+          category: data.category,
+        };
+        allowSubmit.value = true;
+      } else {
+        message.error(`载入失败: ${error?.message}`);
+      }
+    });
+}
 
 const submit = async () => {
   if (!allowSubmit.value) {
@@ -104,21 +106,19 @@ const submit = async () => {
     return;
   }
 
-  if (store === undefined) {
+  if (articleId === undefined) {
     await doAction(
-      Locator.articleRepository
-        .createArticle(formValue.value as any)
-        .then((id) => {
-          draftRepo.removeDraft(draftId);
-          router.push({ path: `/forum/${id}` });
-        }),
+      ArticleRepo.createArticle(formValue.value).then((id) => {
+        draftStore.removeDraft(draftId);
+        router.push({ path: `/forum/${id}` });
+      }),
       '发布',
       message,
     );
   } else {
     await doAction(
-      store.updateArticle(formValue.value as any).then(() => {
-        draftRepo.removeDraft(draftId);
+      ArticleRepo.updateArticle(articleId, formValue.value).then(() => {
+        draftStore.removeDraft(draftId);
         router.push({ path: `/forum/${articleId}` });
       }),
       '更新',
@@ -132,7 +132,7 @@ const submit = async () => {
   <div class="layout-content">
     <n-h1>{{ articleId === undefined ? '发布' : '编辑' }}文章</n-h1>
     <n-form
-      ref="formRef"
+      ref="form"
       :model="formValue"
       :rules="formRules"
       :label-placement="isWideScreen ? 'left' : 'top'"

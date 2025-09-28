@@ -1,6 +1,6 @@
 <script lang="ts" setup>
-import { Locator } from '@/data';
-import { WenkuNovelOutlineDto } from '@/model/WenkuNovel';
+import type { WenkuNovelOutlineDto } from '@/model/WenkuNovel';
+import { FavoredRepo } from '@/stores';
 
 const props = defineProps<{
   selectedNovels: WenkuNovelOutlineDto[];
@@ -13,8 +13,8 @@ defineEmits<{
 
 const message = useMessage();
 
-const favoredRepository = Locator.favoredRepository();
-const { favoreds } = favoredRepository;
+const favoredStore = FavoredRepo.useFavoredStore();
+const { favoreds } = storeToRefs(favoredStore);
 
 // 删除小说
 const showDeleteModal = ref(false);
@@ -33,7 +33,7 @@ const deleteSelected = async () => {
   let failed = 0;
   for (const { id } of novels) {
     try {
-      await favoredRepository.unfavoriteNovel(props.favoredId, {
+      await FavoredRepo.unfavoriteNovel(props.favoredId, {
         type: 'wenku',
         novelId: id,
       });
@@ -64,7 +64,7 @@ const moveToFavored = async () => {
   let failed = 0;
   for (const { id } of novels) {
     try {
-      await favoredRepository.favoriteNovel(props.favoredId, {
+      await FavoredRepo.favoriteNovel(props.favoredId, {
         type: 'wenku',
         novelId: id,
       });
@@ -118,7 +118,7 @@ const moveToFavored = async () => {
             </template>
           </c-modal>
         </n-flex>
-        <n-text depth="3"> 已选择{{ selectedNovels.length }}本小说 </n-text>
+        <n-text depth="3">已选择{{ selectedNovels.length }}本小说</n-text>
       </n-flex>
     </n-list-item>
 

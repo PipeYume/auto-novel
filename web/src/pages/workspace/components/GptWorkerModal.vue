@@ -1,8 +1,8 @@
 <script lang="ts" setup>
-import { FormInst, FormItemRule, FormRules } from 'naive-ui';
+import type { FormInst, FormItemRule, FormRules } from 'naive-ui';
 
-import { Locator } from '@/data';
-import { GptWorker } from '@/model/Translator';
+import type { GptWorker } from '@/model/Translator';
+import { useGptWorkspaceStore } from '@/stores';
 
 const props = defineProps<{
   show: boolean;
@@ -12,7 +12,7 @@ const emit = defineEmits<{
   'update:show': [boolean];
 }>();
 
-const workspace = Locator.gptWorkspaceRepository();
+const workspace = useGptWorkspaceStore();
 const workspaceRef = workspace.ref;
 
 const initFormValue = (): {
@@ -39,7 +39,7 @@ const initFormValue = (): {
   }
 };
 
-const formRef = ref<FormInst>();
+const formRef = useTemplateRef<FormInst>('form');
 const formValue = ref(initFormValue());
 
 const emptyCheck = (name: string) => ({
@@ -129,7 +129,7 @@ const verb = computed(() => (props.worker === undefined ? '添加' : '更新'));
     :title="verb + 'GPT翻译器'"
   >
     <n-form
-      ref="formRef"
+      ref="form"
       :model="formValue"
       :rules="formRules"
       label-placement="left"

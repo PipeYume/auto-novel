@@ -6,18 +6,19 @@ import {
 } from '@vicons/material';
 import { VueDraggable } from 'vue-draggable-plus';
 
-import { Locator } from '@/data';
 import { SakuraTranslator } from '@/domain/translate';
-import { TranslateJob } from '@/model/Translator';
-import SoundAllTaskCompleted from '@/sound/all_task_completed.mp3';
-
+import { TranslationCacheRepo } from '@/repos';
+import type { TranslateJob } from '@/model/Translator';
 import { doAction } from '@/pages/util';
+import SoundAllTaskCompleted from '@/sound/all_task_completed.mp3';
+import { useSakuraWorkspaceStore, useSettingStore } from '@/stores';
 
 const message = useMessage();
 
-const { setting } = Locator.settingRepository();
+const settingStore = useSettingStore();
+const { setting } = storeToRefs(settingStore);
 
-const workspace = Locator.sakuraWorkspaceRepository();
+const workspace = useSakuraWorkspaceStore();
 const workspaceRef = workspace.ref;
 
 const showCreateWorkerModal = ref(false);
@@ -83,13 +84,7 @@ const onProgressUpdated = (
 };
 
 const clearCache = async () =>
-  doAction(
-    Locator.cachedSegRepository().then((repo) =>
-      repo.clear('sakura-seg-cache'),
-    ),
-    '缓存清除',
-    message,
-  );
+  doAction(TranslationCacheRepo.clear('sakura-seg-cache'), '缓存清除', message);
 </script>
 
 <template>
@@ -118,7 +113,10 @@ const clearCache = async () =>
 
       <n-p>允许上传的模型如下，禁止一切试图突破上传检查的操作。</n-p>
       <n-ul>
-        <n-li v-for="({ repo }, model) in SakuraTranslator.allowModels">
+        <n-li
+          v-for="({ repo }, model) in SakuraTranslator.allowModels"
+          :key="model"
+        >
           [
           <n-a
             target="_blank"
@@ -137,9 +135,6 @@ const clearCache = async () =>
           {{ model }}
         </n-li>
       </n-ul>
-      <n-p>
-        感谢@H接手，共享Sakura现在可以开放使用了，目前在测试中，欢迎使用。
-      </n-p>
     </bulletin>
 
     <section-header title="翻译器">
@@ -166,7 +161,7 @@ const clearCache = async () =>
         :animation="150"
         handle=".drag-trigger"
       >
-        <n-list-item v-for="worker of workspaceRef.workers">
+        <n-list-item v-for="worker of workspaceRef.workers" :key="worker.id">
           <job-worker
             :worker="{ translatorId: 'sakura', ...worker }"
             :get-next-job="getNextJob"

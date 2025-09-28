@@ -5,38 +5,33 @@ import {
   KeyboardDoubleArrowUpOutlined,
   UploadOutlined,
 } from '@vicons/material';
-import { FormInst, FormItemRule, FormRules } from 'naive-ui';
+import type { FormInst, FormItemRule, FormRules } from 'naive-ui';
 import { VueDraggable } from 'vue-draggable-plus';
 
-import { Locator } from '@/data';
+import { WenkuNovelApi } from '@/api';
 import { prettyCover, smartImport } from '@/domain/smart-import';
+import { WenkuNovelRepo } from '@/repos';
 import coverPlaceholder from '@/image/cover_placeholder.png';
-import {
-  WenkuNovelOutlineDto,
-  WenkuVolumeDto,
-  presetKeywordsNonR18,
-  presetKeywordsR18,
-} from '@/model/WenkuNovel';
+import type { WenkuNovelOutlineDto, WenkuVolumeDto } from '@/model/WenkuNovel';
+import { presetKeywordsNonR18, presetKeywordsR18 } from '@/model/WenkuNovel';
+import { doAction, useIsWideScreen } from '@/pages/util';
+import { useWhoamiStore } from '@/stores';
 import { RegexUtil, delay } from '@/util';
 import { runCatching } from '@/util/result';
 
-import { doAction, useIsWideScreen } from '@/pages/util';
-import { useWenkuNovelStore } from './WenkuNovelStore';
-
 const { novelId } = defineProps<{
-  novelId?: string;
+  novelId: string | undefined;
 }>();
-
-const store = novelId !== undefined ? useWenkuNovelStore(novelId) : undefined;
 
 const router = useRouter();
 const isWideScreen = useIsWideScreen();
 const message = useMessage();
 
-const { whoami } = Locator.authRepository();
+const whoamiStore = useWhoamiStore();
+const { whoami } = storeToRefs(whoamiStore);
 
 const allowSubmit = ref(novelId === undefined);
-const formRef = ref<FormInst>();
+const formRef = useTemplateRef<FormInst>('form');
 const formValue = ref({
   title: '',
   titleZh: '',
@@ -81,6 +76,13 @@ const formRules: FormRules = {
       trigger: 'input',
     },
   ],
+  cover: [
+    {
+      validator: (_rule: FormItemRule, value: string) => RegexUtil.isUrl(value),
+      message: '封面链接必须是有效的URL',
+      trigger: 'input',
+    },
+  ],
   level: [
     {
       validator: (_rule: FormItemRule, value: string) =>
@@ -100,38 +102,42 @@ const formRules: FormRules = {
 
 const amazonUrl = ref('');
 
-store?.loadNovel()?.then((result) => {
-  if (result.ok) {
-    const {
-      title,
-      titleZh,
-      cover,
-      authors,
-      artists,
-      level,
-      keywords,
-      introduction,
-    } = result.value;
-    formValue.value = {
-      title,
-      titleZh,
-      cover: prettyCover(cover ?? ''),
-      authors,
-      artists,
-      level,
-      keywords,
-      introduction,
-      volumes: result.value.volumes.map((it) => {
-        it.cover = prettyCover(it.cover);
-        return it;
-      }),
-    };
-    amazonUrl.value = result.value.title.replace(/[?？。!！]$/, '');
-    allowSubmit.value = true;
-  } else {
-    message.error('载入失败');
-  }
-});
+if (novelId !== undefined) {
+  WenkuNovelRepo.useWenkuNovel(novelId, false)
+    .refresh()
+    .then(({ data, error }) => {
+      if (data) {
+        const {
+          title,
+          titleZh,
+          cover,
+          authors,
+          artists,
+          level,
+          keywords,
+          introduction,
+        } = data;
+        formValue.value = {
+          title,
+          titleZh,
+          cover: prettyCover(cover ?? ''),
+          authors,
+          artists,
+          level,
+          keywords,
+          introduction,
+          volumes: data.volumes.map((it) => {
+            it.cover = prettyCover(it.cover);
+            return it;
+          }),
+        };
+        amazonUrl.value = data.title.replace(/[?？。!！]$/, '');
+        allowSubmit.value = true;
+      } else {
+        message.error(`载入失败: ${error?.message}`);
+      }
+    });
+}
 
 const submit = async () => {
   if (!allowSubmit.value) {
@@ -163,9 +169,9 @@ const submit = async () => {
     volumes: formValue.value.volumes,
   };
 
-  if (store === undefined) {
+  if (novelId === undefined) {
     await doAction(
-      Locator.wenkuNovelRepository.createNovel(body).then((id) => {
+      WenkuNovelRepo.createNovel(body).then((id) => {
         router.push({ path: `/wenku/${id}` });
       }),
       '新建文库',
@@ -173,7 +179,7 @@ const submit = async () => {
     );
   } else {
     await doAction(
-      store.updateNovel(body).then(() => {
+      WenkuNovelRepo.updateNovel(novelId, body).then(() => {
         router.push({ path: `/wenku/${novelId}` });
       }),
       '编辑文库',
@@ -253,7 +259,7 @@ const findSimilarNovels = async () => {
     2,
   )[0];
   const result = await runCatching(
-    Locator.wenkuNovelRepository.listNovel({
+    WenkuNovelApi.listNovel({
       page: 0,
       pageSize: 6,
       query,
@@ -395,7 +401,7 @@ const levelOptions = [
             @action="populateNovelFromAmazon('', true)"
           />
           <c-button
-            v-if="whoami.isMaintainer"
+            v-if="whoami.isAdmin"
             type="error"
             secondary
             label="标记重复"
@@ -406,7 +412,7 @@ const levelOptions = [
     </n-flex>
 
     <n-form
-      ref="formRef"
+      ref="form"
       :model="formValue"
       :rules="formRules"
       :label-placement="isWideScreen ? 'left' : 'top'"
@@ -492,6 +498,7 @@ const levelOptions = [
               </n-tag>
               <n-tag
                 v-for="keyword of group.presetKeywords"
+                :key="keyword"
                 size="small"
                 checkable
                 :checked="formValue.keywords.includes(keyword)"
@@ -637,7 +644,7 @@ const levelOptions = [
         <p v-if="similarNovels !== null">
           <template v-if="similarNovels.length === 0">没有相似的小说</template>
           <n-grid v-else :x-gap="12" :y-gap="12" cols="3 600:6">
-            <n-grid-item v-for="item in similarNovels">
+            <n-grid-item v-for="item in similarNovels" :key="item.id">
               <router-link :to="`/wenku/${item.id}`">
                 <ImageCard
                   :src="item.cover"
@@ -696,7 +703,7 @@ const levelOptions = [
       下面是一些标签的具体解释。注意，同一个标签在一般向和R18下可能存在区别。
     </n-p>
     <n-divider />
-    <n-p v-for="row of presetKeywords.explanations">
+    <n-p v-for="row of presetKeywords.explanations" :key="row.word">
       <b>{{ row.word }}</b>
       <br />
       {{ row.explanation }}

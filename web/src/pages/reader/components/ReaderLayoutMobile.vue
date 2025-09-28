@@ -7,8 +7,8 @@ import {
   TuneOutlined,
 } from '@vicons/material';
 
-import { Locator } from '@/data';
-import { WebNovelChapterDto } from '@/model/WebNovel';
+import type { WebNovelChapterDto } from '@/model/WebNovel';
+import { useReaderSettingStore } from '@/stores';
 
 defineProps<{
   novelUrl?: string;
@@ -23,18 +23,19 @@ const emit = defineEmits<{
 
 const showMenu = ref(false);
 
-const { setting } = Locator.readerSettingRepository();
+const readerSettingStore = useReaderSettingStore();
+const { readerSetting } = storeToRefs(readerSettingStore);
 
 const onGlobalClick = (event: MouseEvent) => {
   const scrollBy = (y: number) => {
     window.scrollBy({
       top: y * window.innerHeight,
-      behavior: setting.value.enableClickAnimition ? 'smooth' : 'instant',
+      behavior: readerSetting.value.enableClickAnimition ? 'smooth' : 'instant',
     });
   };
 
   const scrollByIfNeed = (p: number) => {
-    const t = 0.15;
+    const t = 0.3;
     const distance = 0.8;
     if (p < t) {
       scrollBy(-distance);
@@ -46,12 +47,12 @@ const onGlobalClick = (event: MouseEvent) => {
   };
 
   if (
-    setting.value.clickArea === 'default' ||
-    setting.value.clickArea === 'up-down'
+    readerSetting.value.clickArea === 'default' ||
+    readerSetting.value.clickArea === 'up-down'
   ) {
     const py = event.clientY / window.innerHeight;
     scrollByIfNeed(py);
-  } else if (setting.value.clickArea === 'left-right') {
+  } else if (readerSetting.value.clickArea === 'left-right') {
     const px = event.clientX / window.innerWidth;
     scrollByIfNeed(px);
   } else {

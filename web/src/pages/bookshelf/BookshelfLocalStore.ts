@@ -1,6 +1,10 @@
-import { Locator } from '@/data';
-import { LocalVolumeMetadata } from '@/model/LocalVolume';
+import type { LocalVolumeMetadata } from '@/model/LocalVolume';
 import { TranslateTaskDescriptor } from '@/model/Translator';
+import {
+  useLocalVolumeStore,
+  useSettingStore,
+  useWorkspaceStore,
+} from '@/stores';
 import { downloadFile, querySearch } from '@/util';
 
 type BookshelfLocalStore = {
@@ -14,22 +18,22 @@ export const useBookshelfLocalStore = defineStore('BookshelfLocal', {
     },
   actions: {
     async loadVolumes() {
-      const repo = await Locator.localVolumeRepository();
+      const repo = await useLocalVolumeStore();
       this.volumes = await repo.listVolume();
       return this.volumes;
     },
     async addVolume(file: File, favoredId: string) {
-      const repo = await Locator.localVolumeRepository();
+      const repo = await useLocalVolumeStore();
       await repo.createVolume(file, favoredId);
       await this.loadVolumes();
     },
     async deleteVolume(id: string) {
-      const repo = await Locator.localVolumeRepository();
+      const repo = await useLocalVolumeStore();
       await repo.deleteVolume(id);
       this.volumes = this.volumes.filter((it) => it.id !== id);
     },
     async deleteVolumes(ids: string[]) {
-      const repo = await Locator.localVolumeRepository();
+      const repo = await useLocalVolumeStore();
 
       let failed = 0;
       await Promise.all(
@@ -46,11 +50,13 @@ export const useBookshelfLocalStore = defineStore('BookshelfLocal', {
       return { success: ids.length - failed, failed };
     },
     async downloadVolumes(ids: string[]) {
-      const { setting } = Locator.settingRepository();
+      const settingStore = useSettingStore();
+      const { setting } = storeToRefs(settingStore);
+
       const { mode, translationsMode, translations } =
         setting.value.downloadFormat;
 
-      const repo = await Locator.localVolumeRepository();
+      const repo = await useLocalVolumeStore();
 
       const { BlobReader, BlobWriter, ZipWriter } = await import(
         '@zip.js/zip.js'
@@ -84,7 +90,7 @@ export const useBookshelfLocalStore = defineStore('BookshelfLocal', {
     },
 
     async downloadRawVolumes(ids: string[]) {
-      const repo = await Locator.localVolumeRepository();
+      const repo = await useLocalVolumeStore();
 
       const { BlobReader, BlobWriter, ZipWriter } = await import(
         '@zip.js/zip.js'
@@ -136,10 +142,7 @@ export const useBookshelfLocalStore = defineStore('BookshelfLocal', {
         total: number;
       },
     ) {
-      const workspace =
-        type === 'gpt'
-          ? Locator.gptWorkspaceRepository()
-          : Locator.sakuraWorkspaceRepository();
+      const workspace = useWorkspaceStore(type);
       const tasks: string[] = [];
       if (taskNumber > 1) {
         const taskSize = (Math.min(endIndex, total) - startIndex) / taskNumber;
@@ -191,11 +194,7 @@ export const useBookshelfLocalStore = defineStore('BookshelfLocal', {
         shouldTop: boolean;
       },
     ) {
-      const workspace =
-        type === 'gpt'
-          ? Locator.gptWorkspaceRepository()
-          : Locator.sakuraWorkspaceRepository();
-
+      const workspace = useWorkspaceStore(type);
       let failed = 0;
       ids.forEach((id) => {
         const task = TranslateTaskDescriptor.local(id, {

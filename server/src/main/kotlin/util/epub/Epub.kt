@@ -10,26 +10,23 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
-import kotlin.io.path.isRegularFile
-import kotlin.io.path.outputStream
-import kotlin.io.path.readBytes
-import kotlin.io.path.readText
+import kotlin.io.path.*
 import kotlin.streams.asSequence
 
 
 private fun FileSystem.readFileAsXHtml(path: String): Document {
-    return Jsoup.parse(getPath(path).readText(), Parser.xmlParser())
+    return Jsoup.parse(zipGetPath(path).readText(), Parser.xmlParser())
 }
 
 object Epub {
     fun forEachXHtmlFile(path: Path, block: (xhtmlPath: String, doc: Document) -> Unit) {
-        FileSystems.newFileSystem(path).use { fs ->
+        ZipUtils.unzip(path).use { fs ->
             val xmlContainer = fs.readFileAsXHtml("/META-INF/container.xml")
             val opfPath = xmlContainer.selectFirst("rootfile")!!.attr("full-path")
 
             val opfDir = opfPath.substringBeforeLast("/", "")
             fs.readFileAsXHtml(opfPath)
-                .select("manifest item[media-type=application/xhtml+xml]")
+                .select("manifest item[media-type=application/xhtml+xml], manifest item[media-type=text/html]")
                 .map { opfDir + "/" + it.attr("href") }
                 .forEach { block(it, fs.readFileAsXHtml(it)) }
         }
@@ -40,7 +37,7 @@ object Epub {
         dstPath: Path,
         modify: (name: String, bytes: ByteArray) -> ByteArray,
     ) {
-        FileSystems.newFileSystem(srcPath).use { fs ->
+        ZipUtils.unzip(srcPath).use { fs ->
             ZipOutputStream(BufferedOutputStream(dstPath.outputStream())).use { zipOut ->
                 Files
                     .walk(fs.rootDirectories.first())

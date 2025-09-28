@@ -1,18 +1,15 @@
 <script lang="ts" setup>
 import {
-  SortOutlined,
-  KeyboardArrowUpRound,
   KeyboardArrowDownRound,
+  KeyboardArrowUpRound,
+  SortOutlined,
 } from '@vicons/material';
-import { ref, computed } from 'vue';
-
-import { Locator } from '@/data';
-import { WebNovelDto, WebNovelTocItemDto } from '@/model/WebNovel';
-import ChapterTocList from '@/components/ChapterTocList.vue';
-
-import { useToc, useLastReadChapter } from './UseWebNovel';
-import { useTocExpansion } from './UseTocExpansion';
 import { NScrollbar } from 'naive-ui';
+
+import type { WebNovelDto, WebNovelTocItemDto } from '@/model/WebNovel';
+import { useSettingStore } from '@/stores';
+import { useTocExpansion } from './UseTocExpansion';
+import { useLastReadChapter, useToc } from './UseWebNovel';
 
 const props = defineProps<{
   providerId: string;
@@ -20,7 +17,9 @@ const props = defineProps<{
   novel: WebNovelDto;
 }>();
 
-const { setting } = Locator.settingRepository();
+const settingStore = useSettingStore();
+const { setting } = storeToRefs(settingStore);
+
 const sortReverse = computed(() => setting.value.tocSortReverse);
 
 const defaultTocExpanded = computed(() => setting.value.tocExpandAll);
@@ -70,7 +69,7 @@ const { expandedNames, hasSeparators, isAnyExpanded, toggleAll, tocSections } =
   <n-divider />
 
   <template v-if="setting.tocCollapseInNarrowScreen">
-    <chapter-toc-item
+    <ChapterTocItem
       v-if="startReadChapter !== undefined"
       :provider-id="providerId"
       :novel-id="novelId"
@@ -124,7 +123,7 @@ const { expandedNames, hasSeparators, isAnyExpanded, toggleAll, tocSections } =
       content-style="padding: 6px 0px 0px;"
     >
       <b style="padding-left: 6px">上次读到:</b>
-      <chapter-toc-item
+      <ChapterTocItem
         :provider-id="providerId"
         :novel-id="novelId"
         :toc-item="lastReadChapter"
@@ -134,7 +133,7 @@ const { expandedNames, hasSeparators, isAnyExpanded, toggleAll, tocSections } =
       />
     </n-card>
     <n-scrollbar>
-      <chapter-toc-list
+      <ChapterTocList
         :toc-sections="tocSections"
         v-model:expanded-names="expandedNames"
         :last-read-chapter-id="novel.lastReadChapterId"
@@ -179,7 +178,7 @@ const { expandedNames, hasSeparators, isAnyExpanded, toggleAll, tocSections } =
     </template>
 
     <div style="flex: 1; min-height: 0; padding: 16px 16px 16px 8px">
-      <chapter-toc-list
+      <ChapterTocList
         :toc-sections="tocSections"
         v-model:expanded-names="expandedNames"
         :last-read-chapter-id="novel.lastReadChapterId"

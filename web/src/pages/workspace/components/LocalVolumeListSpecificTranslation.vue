@@ -2,17 +2,14 @@
 import { DeleteOutlineOutlined } from '@vicons/material';
 import { useKeyModifier } from '@vueuse/core';
 
-import { Locator } from '@/data';
-import { Setting } from '@/data/setting/Setting';
 import { GenericNovelId } from '@/model/Common';
-import { LocalVolumeMetadata } from '@/model/LocalVolume';
-import { downloadFile } from '@/util';
-
+import type { LocalVolumeMetadata } from '@/model/LocalVolume';
 import { useBookshelfLocalStore } from '@/pages/bookshelf/BookshelfLocalStore';
 import { doAction } from '@/pages/util';
-import TranslateOptions from '@/pages/novel/components/TranslateOptions.vue';
+import { Setting, useLocalVolumeStore, useSettingStore } from '@/stores';
+import { downloadFile } from '@/util';
 
-const translateOptions = ref<InstanceType<typeof TranslateOptions>>();
+const translateOptions = useTemplateRef('translateOptions');
 
 const props = defineProps<{
   type: 'gpt' | 'sakura';
@@ -20,7 +17,8 @@ const props = defineProps<{
 
 const message = useMessage();
 
-const { setting } = Locator.settingRepository();
+const settingStore = useSettingStore();
+const { setting } = storeToRefs(settingStore);
 
 const store = useBookshelfLocalStore();
 
@@ -84,7 +82,7 @@ const queueVolume = (volumeId: string, total: number = 65536) => {
 
 const downloadVolume = async (volumeId: string) => {
   const { mode } = setting.value.downloadFormat;
-  const repo = await Locator.localVolumeRepository();
+  const repo = await useLocalVolumeStore();
 
   try {
     const { filename, blob } = await repo.getTranslationFile({
@@ -127,7 +125,7 @@ const progressFilterFunc = computed(() => {
     @volume-add="queueVolume($event.name)"
   >
     <template #extra>
-      <translate-options
+      <TranslateOptions
         ref="translateOptions"
         :gnid="GenericNovelId.local('')"
         :glossary="{}"

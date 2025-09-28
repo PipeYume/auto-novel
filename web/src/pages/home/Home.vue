@@ -7,13 +7,12 @@ import {
   StarBorderOutlined,
 } from '@vicons/material';
 
-import { Locator } from '@/data';
-import { WebNovelRepository, WenkuNovelRepository } from '@/data/api';
+import { FavoredApi } from '@/api';
+import { WebNovelRepo, WenkuNovelRepo } from '@/repos';
 import bannerUrl from '@/image/banner.webp';
-import { WebNovelOutlineDto } from '@/model/WebNovel';
-import { WenkuNovelOutlineDto } from '@/model/WenkuNovel';
+import type { WebNovelOutlineDto } from '@/model/WebNovel';
 import { useBreakPoints } from '@/pages/util';
-import { Result, runCatching } from '@/util/result';
+import { useWhoamiStore } from '@/stores';
 import { WebUtil } from '@/util/web';
 
 const bp = useBreakPoints();
@@ -22,7 +21,8 @@ const showShortcut = bp.smaller('tablet');
 const router = useRouter();
 const vars = useThemeVars();
 
-const { whoami } = Locator.authRepository();
+const whoamiStore = useWhoamiStore();
+const { whoami } = storeToRefs(whoamiStore);
 
 const url = ref('');
 const query = (url: string) => {
@@ -36,50 +36,46 @@ const query = (url: string) => {
   }
 };
 
-const favoriteList = ref<Result<WebNovelOutlineDto[]>>();
+const favoriteList = ref<{
+  data?: WebNovelOutlineDto[];
+  error: Error | null;
+}>({ error: null });
 const loadFavorite = async () => {
-  favoriteList.value = await runCatching(
-    Locator.favoredRepository()
-      .listFavoredWebNovel('default', {
-        page: 0,
-        pageSize: 8,
-        query: '',
-        provider: 'kakuyomu,syosetu,novelup,hameln,pixiv,alphapolis',
-        type: 0,
-        level: 0,
-        translate: 0,
-        sort: 'update',
-      })
-      .then((it) => it.items),
-  );
-};
-loadFavorite();
-
-const mostVisitedWeb = ref<Result<WebNovelOutlineDto[]>>();
-const loadWeb = async () => {
-  mostVisitedWeb.value = await runCatching(
-    WebNovelRepository.listNovel({
+  try {
+    const data = await FavoredApi.listFavoredWebNovel('default', {
       page: 0,
       pageSize: 8,
+      query: '',
       provider: 'kakuyomu,syosetu,novelup,hameln,pixiv,alphapolis',
-      sort: 1,
-      level: 1,
-    }).then((it) => it.items),
-  );
+      type: 0,
+      level: 0,
+      translate: 0,
+      sort: 'update',
+    }).then((it) => it.items);
+    favoriteList.value = { data, error: null };
+  } catch (e) {
+    favoriteList.value = { error: e as Error };
+  }
 };
-loadWeb();
+watch(
+  () => whoami.value.isSignedIn,
+  (isSignedIn) => {
+    if (isSignedIn) {
+      loadFavorite();
+    }
+  },
+  { immediate: true },
+);
 
-const latestUpdateWenku = ref<Result<WenkuNovelOutlineDto[]>>();
-const loadWenku = async () => {
-  latestUpdateWenku.value = await runCatching(
-    WenkuNovelRepository.listNovel({
-      page: 0,
-      pageSize: 12,
-      level: 1,
-    }).then((it) => it.items),
-  );
-};
-loadWenku();
+const { data: mostVisitedWeb, error: mostVisitedWebError } =
+  WebNovelRepo.useWebNovelList(1, {
+    provider: 'kakuyomu,syosetu,novelup,hameln,pixiv,alphapolis',
+    sort: 1,
+    level: 1,
+  });
+
+const { data: latestUpdateWenku, error: latestUpdateWenkuError } =
+  WenkuNovelRepo.useWenkuNovelList(1, { level: 1 });
 
 const showHowToUseModal = ref(false);
 const linkExample = [
@@ -187,6 +183,7 @@ const githubLink = 'https://github.com/auto-novel/auto-novel';
     <div v-else style="height: 16px" />
 
     <bulletin>
+      <Migrate />
       <n-flex>
         <n-button text type="primary" @click="showHowToUseModal = true">
           使用说明
@@ -204,9 +201,8 @@ const githubLink = 'https://github.com/auto-novel/auto-novel';
         禁止使用脚本绕过翻译器提交翻译文本，哪怕你觉得自己提交的是正经翻译。
       </n-p>
       <n-p>
-        FishHawk长期996,网站开发速度大幅下降已成常态，论坛反馈目前没有精力维护，有问题加群@吧
+        FishHawk长期996，网站开发速度大幅下降已成常态，论坛反馈目前没有精力维护，有问题加群@吧
       </n-p>
-      <n-p>文件解析正在大改，如果出现小说文件相关问题，加群@FishHawk。</n-p>
     </bulletin>
 
     <template v-if="whoami.isSignedIn">
@@ -215,7 +211,10 @@ const githubLink = 'https://github.com/auto-novel/auto-novel';
           <c-button label="更多" :icon="ReadMoreOutlined" />
         </router-link>
       </section-header>
-      <PanelWebNovel :list-result="favoriteList" />
+      <PanelWebNovel
+        :novels="favoriteList?.data?.slice(0, 8)"
+        :error="favoriteList?.error"
+      />
       <n-divider />
     </template>
 
@@ -224,7 +223,10 @@ const githubLink = 'https://github.com/auto-novel/auto-novel';
         <c-button label="更多" :icon="ReadMoreOutlined" />
       </router-link>
     </section-header>
-    <PanelWebNovel :list-result="mostVisitedWeb" />
+    <PanelWebNovel
+      :novels="mostVisitedWeb?.items?.slice(0, 8)"
+      :error="mostVisitedWebError"
+    />
     <n-divider />
 
     <section-header title="文库小说-最新更新">
@@ -232,7 +234,10 @@ const githubLink = 'https://github.com/auto-novel/auto-novel';
         <c-button label="更多" :icon="ReadMoreOutlined" />
       </router-link>
     </section-header>
-    <PanelWenkuNovel :list-result="latestUpdateWenku" />
+    <PanelWenkuNovel
+      :novels="latestUpdateWenku?.items?.slice(0, 12)"
+      :error="latestUpdateWenkuError"
+    />
     <n-divider />
   </div>
 
@@ -245,9 +250,10 @@ const githubLink = 'https://github.com/auto-novel/auto-novel';
       中发帖讨论。
     </n-p>
     <n-p>支持的小说站如下:</n-p>
-    <n-p v-for="[name, link] of linkExample">
+    <n-p v-for="[name, link] of linkExample" :key="name">
       <b>{{ name }}</b>
       <br />
+      <!-- eslint-disable-next-line vue/no-v-html -->
       <span v-html="link" />
     </n-p>
   </c-modal>

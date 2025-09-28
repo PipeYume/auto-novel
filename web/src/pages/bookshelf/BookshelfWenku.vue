@@ -1,13 +1,15 @@
 <script lang="ts" setup>
 import { ChecklistOutlined } from '@vicons/material';
 
-import { Locator } from '@/data';
-import { WenkuNovelOutlineDto } from '@/model/WenkuNovel';
-import { runCatching } from '@/util/result';
-
 import { useIsWideScreen } from '@/pages/util';
-import NovelListWenku from '../list/components/NovelListWenku.vue';
-import { Loader } from '../list/components/NovelPage.vue';
+import { WenkuNovelRepo } from '@/repos';
+import { useSettingStore } from '@/stores';
+import { onUpdateListValue, onUpdatePage } from '../list/option';
+import type { WenkuFavoredListValue } from './option';
+import {
+  getWenkuFavoredListOptions,
+  parseFavoredListValueSort,
+} from './option';
 
 const props = defineProps<{
   page: number;
@@ -17,46 +19,31 @@ const props = defineProps<{
 
 const isWideScreen = useIsWideScreen();
 
-const { setting } = Locator.settingRepository();
+const settingStore = useSettingStore();
+const { setting } = storeToRefs(settingStore);
 
-const options = computed(() => {
-  return [
-    {
-      label: '排序',
-      tags: setting.value.favoriteCreateTimeFirst
-        ? ['收藏时间', '更新时间']
-        : ['更新时间', '收藏时间'],
+const listOptions = getWenkuFavoredListOptions(
+  setting.value.favoriteCreateTimeFirst,
+);
+
+const listValue = computed(
+  () =>
+    <WenkuFavoredListValue>{
+      排序: props.selected[4] ?? 0,
     },
-  ];
-});
+);
 
-const loader = computed<Loader<WenkuNovelOutlineDto>>(() => {
-  const { favoredId } = props;
-  return (page, _query, selected) => {
-    const optionNth = (n: number): string => options.value[n].tags[selected[n]];
-    const optionSort = () => {
-      const option = optionNth(0);
-      if (option === '更新时间') {
-        return 'update';
-      } else {
-        return 'create';
-      }
-    };
-    return runCatching(
-      Locator.favoredRepository()
-        .listFavoredWenkuNovel(favoredId, {
-          page,
-          pageSize: 24,
-          sort: optionSort(),
-        })
-        .then((it) => ({ type: 'wenku', ...it })),
-    );
-  };
-});
+const { data: novelPage, error } = WenkuNovelRepo.useWenkuNovelFavoredList(
+  () => props.page,
+  () => props.favoredId,
+  () => ({
+    sort: parseFavoredListValueSort(listOptions.排序, listValue.value.排序),
+  }),
+);
 
 const showControlPanel = ref(false);
 
-const novelListRef = ref<InstanceType<typeof NovelListWenku>>();
+const novelListRef = useTemplateRef('novelList');
 </script>
 
 <template>
@@ -82,19 +69,30 @@ const novelListRef = ref<InstanceType<typeof NovelListWenku>>();
       />
     </n-collapse-transition>
 
-    <novel-page
+    <ListFilter
+      :options="listOptions"
+      :value="listValue"
+      @update:value="onUpdateListValue(listOptions, $event)"
+    />
+
+    <CPage
       :page="page"
-      :selected="selected"
-      :loader="loader"
-      :options="options"
-      v-slot="{ items }"
+      :page-number="novelPage?.pageNumber"
+      @update:page="onUpdatePage"
     >
-      <novel-list-wenku
-        ref="novelListRef"
-        :items="items"
-        :selectable="showControlPanel"
-        simple
-      />
-    </novel-page>
+      <template v-if="novelPage">
+        <n-divider />
+        <NovelListWenku
+          ref="novelList"
+          :items="novelPage.items"
+          :selectable="showControlPanel"
+          simple
+        />
+        <n-empty v-if="novelPage.items.length === 0" description="空列表" />
+        <n-divider />
+      </template>
+
+      <CResultX v-else :error="error" title="加载错误" />
+    </CPage>
   </bookshelf-layout>
 </template>

@@ -1,17 +1,18 @@
 <script lang="ts" setup>
 import {
-  SortOutlined,
-  KeyboardArrowUpRound,
   KeyboardArrowDownRound,
+  KeyboardArrowUpRound,
+  SortOutlined,
 } from '@vicons/material';
-import { Locator } from '@/data';
-import { GenericNovelId } from '@/model/Common';
-import { useWebNovelStore } from '@/pages/novel/WebNovelStore';
-import { Ok, Result, runCatching } from '@/util/result';
-import { ReadableTocItem } from '@/pages/novel/components/common';
+
+import type { GenericNovelId } from '@/model/Common';
+import type { ReadableTocItem } from '@/pages/novel/components/common';
 import { useTocExpansion } from '@/pages/novel/components/UseTocExpansion';
-import ChapterTocList from '@/components/ChapterTocList.vue';
 import { useIsWideScreen } from '@/pages/util';
+import { WebNovelRepo } from '@/repos';
+import { useLocalVolumeStore, useSettingStore } from '@/stores';
+import type { Result } from '@/util/result';
+import { Err, Ok, runCatching } from '@/util/result';
 
 const props = defineProps<{
   show: boolean;
@@ -37,7 +38,9 @@ const tocNumber = computed(() => {
   return tocData.value?.filter((it) => it.chapterId !== undefined).length;
 });
 
-const { setting } = Locator.settingRepository();
+const settingStore = useSettingStore();
+const { setting } = storeToRefs(settingStore);
+
 const sortReverse = computed(() => setting.value.tocSortReverse);
 
 const isWideScreen = useIsWideScreen();
@@ -57,11 +60,13 @@ watch(
     if (show) {
       if (tocResult.value?.ok !== true) {
         const getWebToc = async (providerId: string, novelId: string) => {
-          const store = useWebNovelStore(providerId, novelId);
-          const result = await store.loadNovel();
-          if (result.ok) {
+          const { data: novel } = await WebNovelRepo.useWebNovel(
+            providerId,
+            novelId,
+          ).refresh();
+          if (novel) {
             let order = 0;
-            const tocItems = result.value.toc.map((it, index) => {
+            const tocItems = novel.toc.map((it, index) => {
               const tocItem = <TocItem>{
                 ...it,
                 key: index,
@@ -72,12 +77,12 @@ watch(
             });
             return Ok(tocItems);
           } else {
-            return result;
+            return Err('载入失败');
           }
         };
 
         const getLocalToc = async (volumeId: string) => {
-          const repo = await Locator.localVolumeRepository();
+          const repo = await useLocalVolumeStore();
           const volume = await repo.getVolume(volumeId);
           if (volume === undefined) throw Error('小说不存在');
           return volume.toc.map(
@@ -154,7 +159,7 @@ const onTocItemClick = (item: ReadableTocItem) => {
     </template>
 
     <c-result :result="tocResult">
-      <chapter-toc-list
+      <ChapterTocList
         v-if="gnid.type === 'web' && tocSections"
         :toc-sections="tocSections"
         v-model:expanded-names="expandedNames"
@@ -171,7 +176,7 @@ const onTocItemClick = (item: ReadableTocItem) => {
         @item-click="onTocItemClick"
         style="height: 100%"
       />
-      <chapter-toc-list
+      <ChapterTocList
         v-else-if="gnid.type === 'local' && tocSections"
         :toc-sections="tocSections"
         v-model:expanded-names="expandedNames"

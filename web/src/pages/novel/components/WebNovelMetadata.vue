@@ -2,8 +2,8 @@
 import { BookOutlined, EditNoteOutlined } from '@vicons/material';
 import { NA, NText } from 'naive-ui';
 
-import { Locator } from '@/data';
-import { WebNovelDto } from '@/model/WebNovel';
+import type { WebNovelDto } from '@/model/WebNovel';
+import { useWhoamiStore } from '@/stores';
 import { WebUtil } from '@/util/web';
 
 import { useIsWideScreen } from '@/pages/util';
@@ -16,7 +16,8 @@ const props = defineProps<{
 
 const isWideScreen = useIsWideScreen();
 
-const { whoami } = Locator.authRepository();
+const whoamiStore = useWhoamiStore();
+const { whoami } = storeToRefs(whoamiStore);
 
 const labels = computed(() => {
   const readableNumber = (num: number | undefined) => {
@@ -91,7 +92,7 @@ const latestChapterCreateAt = computed(() => {
 
   <n-p v-if="novel.authors.length > 0">
     作者：
-    <template v-for="author in novel.authors">
+    <template v-for="author in novel.authors" :key="author.name">
       <n-a :href="author.link">{{ author.name }}</n-a>
     </template>
   </n-p>
@@ -158,6 +159,7 @@ const latestChapterCreateAt = computed(() => {
   <n-flex :size="[4, 4]">
     <router-link
       v-for="attention of novel.attentions.sort()"
+      :key="attention"
       :to="`/novel?query=${attention}\$`"
     >
       <novel-tag :tag="attention" strong />
@@ -165,6 +167,7 @@ const latestChapterCreateAt = computed(() => {
 
     <router-link
       v-for="keyword of novel.keywords"
+      :key="keyword"
       :to="`/novel?query=${keyword}\$`"
     >
       <novel-tag :tag="WebUtil.tryTranslateKeyword(keyword)" />

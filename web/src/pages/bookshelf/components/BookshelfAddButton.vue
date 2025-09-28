@@ -1,18 +1,15 @@
 <script lang="ts" setup>
 import { PlusOutlined } from '@vicons/material';
-import { FormInst, FormItemRule, FormRules } from 'naive-ui';
-
-import { Locator } from '@/data';
+import type { FormInst, FormItemRule, FormRules } from 'naive-ui';
 
 import { doAction } from '@/pages/util';
+import { FavoredRepo } from '@/stores';
 
 const message = useMessage();
 
-const favoredRepository = Locator.favoredRepository();
-
 const showAddModal = ref(false);
 
-const formRef = ref<FormInst>();
+const formRef = useTemplateRef<FormInst>('form');
 const formValue = ref<{
   title: string;
   type: 'web' | 'wenku' | 'local';
@@ -44,7 +41,7 @@ const addFavorite = async () => {
 
   const { type, title } = formValue.value;
   await doAction(
-    favoredRepository.createFavored(type, title).then(() => {
+    FavoredRepo.createFavored(type, title).then(() => {
       showAddModal.value = false;
     }),
     '收藏夹创建',
@@ -58,7 +55,7 @@ const addFavorite = async () => {
 
   <c-modal title="新建收藏夹" v-model:show="showAddModal">
     <n-form
-      ref="formRef"
+      ref="form"
       :model="formValue"
       :rules="formRules"
       label-placement="left"

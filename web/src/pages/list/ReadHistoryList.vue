@@ -1,32 +1,39 @@
 <script lang="ts" setup>
 import { DeleteOutlineOutlined } from '@vicons/material';
 
-import { Locator } from '@/data';
-import { WebNovelOutlineDto } from '@/model/WebNovel';
-import { runCatching } from '@/util/result';
-
-import { Loader } from '../list/components/NovelPage.vue';
+import { ReadHistoryApi } from '@/api';
+import { WebNovelRepo } from '@/repos';
+import router from '@/router';
+import { useReadHistoryStore } from '@/stores';
 import { doAction } from '../util';
 
-defineProps<{
+const route = useRoute();
+
+const onUpdatePage = (page: number) => {
+  const query = { ...route.query, page };
+  router.push({ path: route.path, query });
+};
+
+const props = defineProps<{
   page: number;
 }>();
 
 const message = useMessage();
 
-const readHistoryRepository = Locator.readHistoryRepository();
-const { readHistoryPaused } = readHistoryRepository;
+const readHistoryStore = useReadHistoryStore();
+const { readHistoryPaused } = storeToRefs(readHistoryStore);
 
 onMounted(() => {
-  readHistoryRepository.loadReadHistoryPausedState();
+  readHistoryStore.loadReadHistoryPausedState();
 });
 
-const loader: Loader<WebNovelOutlineDto> = (page, _query, _selected) =>
-  runCatching(readHistoryRepository.listReadHistoryWeb({ page, pageSize: 30 }));
+const { data: novelPage, error } = WebNovelRepo.useWebNovelHistoryList(
+  () => props.page,
+);
 
 const clearHistory = () =>
   doAction(
-    readHistoryRepository.clearReadHistoryWeb().then(() => {
+    ReadHistoryApi.clearReadHistoryWeb().then(() => {
       window.location.reload();
     }),
     '清空',
@@ -35,7 +42,7 @@ const clearHistory = () =>
 
 const deleteHistory = (providerId: string, novelId: string) =>
   doAction(
-    readHistoryRepository.deleteReadHistoryWeb(providerId, novelId).then(() => {
+    ReadHistoryApi.deleteReadHistoryWeb(providerId, novelId).then(() => {
       window.location.reload();
     }),
     '删除',
@@ -48,7 +55,8 @@ const deleteHistory = (providerId: string, novelId: string) =>
     <n-h1>阅读历史</n-h1>
 
     <n-flex style="margin-bottom: 24px">
-      <c-button
+      <c-button-confirm
+        hint="真的要清空记录吗？"
         label="清空记录"
         :icon="DeleteOutlineOutlined"
         @action="clearHistory()"
@@ -56,12 +64,12 @@ const deleteHistory = (providerId: string, novelId: string) =>
       <c-button
         v-if="readHistoryPaused"
         label="继续记录历史"
-        @action="readHistoryRepository.resumeReadHistory()"
+        @action="readHistoryStore.resumeReadHistory()"
       />
       <c-button
         v-else
         label="暂停记录历史"
-        @action="readHistoryRepository.pauseReadHistory()"
+        @action="readHistoryStore.pauseReadHistory()"
       />
     </n-flex>
 
@@ -69,17 +77,28 @@ const deleteHistory = (providerId: string, novelId: string) =>
       注意：历史功能已暂停
     </n-text>
 
-    <novel-page :page="page" :loader="loader" :options="[]" v-slot="{ items }">
-      <novel-list-web :items="items" simple>
-        <template #action="item">
-          <c-button
-            size="tiny"
-            label="删除"
-            style="margin-top: 2px"
-            @action="deleteHistory(item.providerId, item.novelId)"
-          />
-        </template>
-      </novel-list-web>
-    </novel-page>
+    <CPage
+      :page="page"
+      :page-number="novelPage?.pageNumber"
+      @update:page="onUpdatePage"
+    >
+      <template v-if="novelPage">
+        <n-divider />
+        <NovelListWeb :items="novelPage.items" :option="[]" simple>
+          <template #action="item">
+            <c-button
+              size="tiny"
+              label="删除"
+              style="margin-top: 2px"
+              @action="deleteHistory(item.providerId, item.novelId)"
+            />
+          </template>
+        </NovelListWeb>
+        <n-empty v-if="novelPage.items.length === 0" description="空列表" />
+        <n-divider />
+      </template>
+
+      <CResultX v-else :error="error" title="加载错误" />
+    </CPage>
   </div>
 </template>

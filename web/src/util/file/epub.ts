@@ -60,12 +60,10 @@ export class Epub extends BaseFile {
   itemrefs: EpubItemref[] = [];
   navItems: EpubNavItem[] = [];
 
-  private resolve(path: string) {
-    const dir = this.packagePath.substring(
-      0,
-      this.packagePath.lastIndexOf('/') + 1,
-    );
-    return dir + path;
+  private resolve(root: string, rpath: string) {
+    const rootUrl = new URL(root, 'file://book');
+    const newURL = new URL(rpath, rootUrl);
+    return newURL.pathname.substring(1);
   }
 
   private updateHref(oldHref: string, newHref: string) {
@@ -125,9 +123,10 @@ export class Epub extends BaseFile {
       this.items.set(id, itemBase as EpubItem);
     }
 
-    this.navigationPath = this.items
-      .values()
-      .find(({ properties }) => properties?.includes('nav'))?.href;
+    const navHref = Array.from(this.items.values()).find(({ properties }) =>
+      properties?.includes('nav'),
+    )?.href;
+    this.navigationPath = navHref && this.resolve(this.packagePath, navHref);
   }
 
   private parseSpine(el: Element) {
@@ -149,7 +148,8 @@ export class Epub extends BaseFile {
     const tocIdref = el.getAttribute('toc');
     if (tocIdref) {
       const tocItem = this.items.get(tocIdref);
-      this.ncxPath = tocItem?.href;
+      const tocItemHref = tocItem?.href;
+      this.ncxPath = tocItemHref && this.resolve(this.packagePath, tocItemHref);
     }
   }
 
@@ -173,9 +173,10 @@ export class Epub extends BaseFile {
       return items;
     };
     const navEls = Array.from(doc.getElementsByTagName('nav'));
-    const tocOlEl = navEls
-      .find((navEl) => navEl.getAttribute('epub:type') === 'toc')
-      ?.querySelector(':scope > ol');
+    const tocNavEl =
+      navEls.find((navEl) => navEl.getAttribute('epub:type') === 'toc') ??
+      navEls.find((navEl) => navEl.id === 'toc'); // 为了兼容不标准的epub
+    const tocOlEl = tocNavEl?.querySelector(':scope > ol');
     if (!tocOlEl) throw new Error('Nav toc not exist');
     this.navItems = parseTocList(tocOlEl);
   }
@@ -235,15 +236,13 @@ export class Epub extends BaseFile {
     this.parsePackage(await readDoc(this.packagePath));
 
     if (this.navigationPath) {
-      this.parseNavigationDocument(
-        await readDoc(this.resolve(this.navigationPath)),
-      );
+      this.parseNavigationDocument(await readDoc(this.navigationPath));
     } else if (this.ncxPath) {
-      this.parseNcx(await readDoc(this.resolve(this.ncxPath)));
+      this.parseNcx(await readDoc(this.ncxPath));
     }
 
     for (const item of this.items.values()) {
-      const path = this.resolve(item.href);
+      const path = this.resolve(this.packagePath, item.href);
 
       if (item.mediaType === 'application/xhtml+xml') {
         (item as EpubItemDoc).doc = await readDoc(path);
@@ -302,8 +301,9 @@ export class Epub extends BaseFile {
   }
 
   private updatePackage() {
+    const packageDocNs = this.packageDoc.documentElement.namespaceURI;
     const items = [...this.items.values()].map((item) => {
-      const itemEl = document.createElement('item');
+      const itemEl = this.packageDoc.createElementNS(packageDocNs, 'item');
       itemEl.setAttribute('id', item.id);
       itemEl.setAttribute('href', item.href);
       itemEl.setAttribute('media-type', item.mediaType);
@@ -343,7 +343,7 @@ export class Epub extends BaseFile {
     await writeDoc(this.packagePath, this.packageDoc);
 
     for (const item of this.items.values()) {
-      const path = this.resolve(item.href);
+      const path = this.resolve(this.packagePath, item.href);
       if ('doc' in item) {
         await writeDoc(path, item.doc);
       } else {

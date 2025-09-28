@@ -1,6 +1,4 @@
 <script setup lang="ts">
-import { Component } from 'vue';
-
 defineProps<{
   label: string;
   icon: Component;
@@ -18,7 +16,7 @@ defineEmits<{
         quaternary
         size="small"
         @mousedown="
-          (e) => {
+          (e: any) => {
             $emit('action');
             e.preventDefault();
           }

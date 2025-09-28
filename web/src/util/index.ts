@@ -173,6 +173,15 @@ export namespace RegexUtil {
     return countResult;
   };
 
+  export function isUrl(str: string) {
+    try {
+      new URL(str);
+      return true;
+    } catch (error) {
+      return false;
+    }
+  }
+
   export const getLeadingSpaces = (str: string) => str.match(/^\s*/)?.[0] ?? '';
 
   export const isSafari = (agent: string) =>
@@ -190,3 +199,18 @@ export namespace Humanize {
   export const bytes = (rawNum: number) =>
     unit(rawNum, ['B', 'KB', 'MB', 'GB', 'TB', 'PB'], 1024);
 }
+
+export const lazy = <T>(factory: () => T) => {
+  let value: T;
+  const get = () => {
+    if (value === undefined) {
+      value = factory();
+    }
+    return value;
+  };
+  return get;
+};
+
+export * from './useOpenCC';
+export * from './useStorage';
+export * from './useUserData';

@@ -1,13 +1,16 @@
 <script lang="ts" setup>
 import { ChecklistOutlined } from '@vicons/material';
 
-import { Locator } from '@/data';
-import { WebNovelOutlineDto } from '@/model/WebNovel';
-import { runCatching } from '@/util/result';
-
 import { useIsWideScreen } from '@/pages/util';
-import NovelListWeb from '../list/components/NovelListWeb.vue';
-import { Loader } from '../list/components/NovelPage.vue';
+import { WebNovelRepo } from '@/repos';
+import { useSettingStore, useWhoamiStore } from '@/stores';
+import {
+  onUpdateListValue,
+  onUpdatePage,
+  parseWebListValueProvider,
+} from '../list/option';
+import type { WebFavoredListValue } from './option';
+import { getWebFavoredListOptions, parseFavoredListValueSort } from './option';
 
 const props = defineProps<{
   page: number;
@@ -16,120 +19,47 @@ const props = defineProps<{
   favoredId: string;
 }>();
 
-const route = useRoute();
-
 const isWideScreen = useIsWideScreen();
 
-const { setting } = Locator.settingRepository();
+const whoamiStore = useWhoamiStore();
+const { whoami } = storeToRefs(whoamiStore);
 
-const options = computed(() => [
-  {
-    label: '来源',
-    tags: [
-      'Kakuyomu',
-      '成为小说家吧',
-      'Novelup',
-      'Hameln',
-      'Pixiv',
-      'Alphapolis',
-    ],
-    multiple: true,
-  },
-  {
-    label: '类型',
-    tags: ['全部', '连载中', '已完结', '短篇'],
-  },
-  {
-    label: '分级',
-    tags: ['全部', '一般向', 'R18'],
-  },
-  {
-    label: '翻译',
-    tags: ['全部', 'GPT', 'Sakura'],
-  },
-  {
-    label: '排序',
-    tags: ['更新时间', '收藏时间'],
-  },
-]);
+const settingStore = useSettingStore();
+const { setting } = storeToRefs(settingStore);
 
-const loader = computed<Loader<WebNovelOutlineDto>>(() => {
-  const { favoredId } = props;
-  return (page, query, selected) => {
-    if (query !== '') {
-      document.title = '我的收藏 搜索：' + query;
-    }
-    const parseProviderBitFlags = (n: number): string => {
-      const providerMap: { [key: string]: string } = {
-        Kakuyomu: 'kakuyomu',
-        成为小说家吧: 'syosetu',
-        Novelup: 'novelup',
-        Hameln: 'hameln',
-        Pixiv: 'pixiv',
-        Alphapolis: 'alphapolis',
-      };
-      return options.value[n].tags
-        .filter((_, index) => (selected[n] & (1 << index)) !== 0)
-        .map((tag) => providerMap[tag])
-        .join();
-    };
+const listOptions = getWebFavoredListOptions(
+  whoami.value.allowNsfw,
+  setting.value.favoriteCreateTimeFirst,
+);
 
-    const parseSort = (sortIndex: number): 'create' | 'update' => {
-      const sortOption = (options.value.find((opt) => opt.label === '排序')
-        ?.tags ?? [])[sortIndex];
-      switch (sortOption) {
-        case '收藏时间':
-          return 'create';
-        case '更新时间':
-        default:
-          return 'update';
-      }
-    };
-    return runCatching(
-      Locator.favoredRepository()
-        .listFavoredWebNovel(favoredId, {
-          page,
-          pageSize: 30,
-          query,
-          provider: parseProviderBitFlags(0),
-          type: selected[1],
-          level: selected[2],
-          translate: selected[3],
-          sort: parseSort(selected[4]),
-        })
-        .then((it) => ({ type: 'web', ...it })),
-    );
-  };
-});
+const listValue = computed(
+  () =>
+    <WebFavoredListValue>{
+      搜索: props.query,
+      来源: props.selected[0] ?? 0xff,
+      类型: props.selected[1] ?? 0,
+      分级: props.selected[2] ?? 0,
+      翻译: props.selected[3] ?? 0,
+      排序: props.selected[4] ?? 0,
+    },
+);
 
-const webSearchHistoryRepository = Locator.webSearchHistoryRepository();
-
-const search = computed(() => {
-  const searchHistory = webSearchHistoryRepository.ref.value;
-  return {
-    suggestions: searchHistory.queries,
-    tags: searchHistory.tags
-      .sort((a, b) => Math.log2(b.used) - Math.log2(a.used))
-      .map((it) => it.tag)
-      .slice(0, 8),
-  };
-});
-
-watch(
-  route,
-  async (route) => {
-    let query = '';
-    if (typeof route.query.query === 'string') {
-      query = route.query.query;
-    }
-    webSearchHistoryRepository.addHistory(query);
-  },
-  { immediate: true },
+const { data: novelPage, error } = WebNovelRepo.useWebNovelFavoredList(
+  () => props.page,
+  () => props.favoredId,
+  () => ({
+    query: listValue.value.搜索,
+    provider: parseWebListValueProvider(listValue.value.来源),
+    type: listValue.value.类型,
+    level: listValue.value.分级,
+    translate: listValue.value.翻译,
+    sort: parseFavoredListValueSort(listOptions.排序, listValue.value.排序),
+  }),
 );
 
 const showControlPanel = ref(false);
 
-const novelListRef = ref<InstanceType<typeof NovelListWeb>>();
+const novelListRef = useTemplateRef('novelList');
 </script>
 
 <template>
@@ -155,21 +85,30 @@ const novelListRef = ref<InstanceType<typeof NovelListWeb>>();
       />
     </n-collapse-transition>
 
-    <novel-page
+    <ListFilter
+      :options="listOptions"
+      :value="listValue"
+      @update:value="onUpdateListValue(listOptions, $event)"
+    />
+
+    <CPage
       :page="page"
-      :query="query"
-      :selected="selected"
-      :loader="loader"
-      :options="options"
-      :search="search"
-      v-slot="{ items }"
+      :page-number="novelPage?.pageNumber"
+      @update:page="onUpdatePage"
     >
-      <novel-list-web
-        ref="novelListRef"
-        :items="items"
-        :selectable="showControlPanel"
-        :simple="!setting.showTagInWebFavored"
-      />
-    </novel-page>
+      <template v-if="novelPage">
+        <n-divider />
+        <NovelListWeb
+          ref="novelList"
+          :items="novelPage.items"
+          :selectable="showControlPanel"
+          :simple="!setting.showTagInWebFavored"
+        />
+        <n-empty v-if="novelPage.items.length === 0" description="空列表" />
+        <n-divider />
+      </template>
+
+      <CResultX v-else :error="error" title="加载错误" />
+    </CPage>
   </bookshelf-layout>
 </template>

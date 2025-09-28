@@ -1,150 +1,87 @@
 <script lang="ts" setup>
-import { Locator } from '@/data';
-import { WebNovelRepository } from '@/data/api';
-import { WebNovelOutlineDto } from '@/model/WebNovel';
-import { runCatching } from '@/util/result';
+import { WebNovelRepo } from '@/repos';
+import { FavoredRepo, useWhoamiStore } from '@/stores';
+import type { WebListValue } from './option';
+import {
+  getWebListOptions,
+  onUpdateListValue,
+  onUpdatePage,
+  parseWebListValueProvider,
+} from './option';
 
-import { Loader } from './components/NovelPage.vue';
-
-defineProps<{
+const props = defineProps<{
   page: number;
   query: string;
   selected: number[];
 }>();
 
-const route = useRoute();
+const whoamiStore = useWhoamiStore();
+const { whoami } = storeToRefs(whoamiStore);
 
-const { whoami } = Locator.authRepository();
+const favoredStore = FavoredRepo.useFavoredStore();
+const { favoreds } = storeToRefs(favoredStore);
 
-const options = [
-  {
-    label: '来源',
-    tags: [
-      'Kakuyomu',
-      '成为小说家吧',
-      'Novelup',
-      'Hameln',
-      'Pixiv',
-      'Alphapolis',
-    ],
-    multiple: true,
-  },
-  {
-    label: '类型',
-    tags: ['全部', '连载中', '已完结', '短篇'],
-  },
-  ...(whoami.value.allowNsfw
-    ? [
-        {
-          label: '分级',
-          tags: ['全部', '一般向', 'R18'],
-        },
-      ]
-    : []),
-  {
-    label: '翻译',
-    tags: ['全部', 'GPT', 'Sakura'],
-  },
-  {
-    label: '排序',
-    tags: ['更新', '点击', '相关'],
-  },
-];
+const listOptions = getWebListOptions(whoami.value.allowNsfw);
 
-const favoredRepository = Locator.favoredRepository();
-onMounted(() => favoredRepository.loadRemoteFavoreds());
-
-const loader: Loader<WebNovelOutlineDto> = (page, query, selected) => {
-  if (query !== '') {
-    document.title = '网络小说 搜索：' + query;
-  }
-  const parseProviderBitFlags = (n: number): string => {
-    const providerMap: { [key: string]: string } = {
-      Kakuyomu: 'kakuyomu',
-      成为小说家吧: 'syosetu',
-      Novelup: 'novelup',
-      Hameln: 'hameln',
-      Pixiv: 'pixiv',
-      Alphapolis: 'alphapolis',
-    };
-    return options[n].tags
-      .filter((_, index) => (selected[n] & (1 << index)) !== 0)
-      .map((tag) => providerMap[tag])
-      .join();
-  };
-
-  return runCatching(
-    WebNovelRepository.listNovel({
-      page,
-      pageSize: 20,
-      query,
-      provider: parseProviderBitFlags(0),
-      type: selected[1],
-      ...(whoami.value.allowNsfw
-        ? {
-            level: selected[2],
-            translate: selected[3],
-            sort: selected[4],
-          }
-        : {
-            level: 1,
-            translate: selected[2],
-            sort: selected[3],
-          }),
-    }).then((page) => {
-      const favoredIds = favoredRepository.favoreds.value.web.map(
-        (it) => it.id,
-      );
-      for (const item of page.items) {
-        if (item.favored && !favoredIds.includes(item.favored)) {
-          item.favored = undefined;
-        }
-      }
-      return page;
-    }),
-  );
-};
-
-const webSearchHistoryRepository = Locator.webSearchHistoryRepository();
-
-const search = computed(() => {
-  const searchHistory = webSearchHistoryRepository.ref.value;
-  return {
-    suggestions: searchHistory.queries,
-    tags: searchHistory.tags
-      .sort((a, b) => Math.log2(b.used) - Math.log2(a.used))
-      .map((it) => it.tag)
-      .slice(0, 8),
-  };
-});
-
-watch(
-  route,
-  async (route) => {
-    let query = '';
-    if (typeof route.query.query === 'string') {
-      query = route.query.query;
-    }
-    webSearchHistoryRepository.addHistory(query);
-  },
-  { immediate: true },
+const listValue = computed(
+  () =>
+    <WebListValue>{
+      搜索: props.query,
+      来源: props.selected[0] ?? 0xff,
+      类型: props.selected[1] ?? 0,
+      分级: props.selected[2] ?? 0,
+      翻译: props.selected[3] ?? 0,
+      排序: props.selected[4] ?? 0,
+    },
 );
+
+const { data: novelPage, error } = WebNovelRepo.useWebNovelList(
+  () => props.page,
+  () => ({
+    query: listValue.value.搜索,
+    provider: parseWebListValueProvider(listValue.value.来源),
+    type: listValue.value.类型,
+    level: listValue.value.分级,
+    translate: listValue.value.翻译,
+    sort: listValue.value.排序,
+  }),
+);
+
+watch(novelPage, (novelPage) => {
+  if (novelPage) {
+    const favoredIds = favoreds.value.web.map((it) => it.id);
+    for (const item of novelPage.items) {
+      if (item.favored && !favoredIds.includes(item.favored)) {
+        item.favored = undefined;
+      }
+    }
+  }
+});
 </script>
 
 <template>
   <div class="layout-content">
     <n-h1>网络小说</n-h1>
 
-    <novel-page
+    <ListFilter
+      :options="listOptions"
+      :value="listValue"
+      @update:value="onUpdateListValue(listOptions, $event)"
+    />
+
+    <CPage
       :page="page"
-      :query="query"
-      :selected="selected"
-      :loader="loader"
-      :search="search"
-      :options="options"
-      v-slot="{ items }"
+      :page-number="novelPage?.pageNumber"
+      @update:page="onUpdatePage"
     >
-      <novel-list-web :items="items" />
-    </novel-page>
+      <template v-if="novelPage">
+        <n-divider />
+        <NovelListWeb :items="novelPage.items" />
+        <n-empty v-if="novelPage.items.length === 0" description="空列表" />
+        <n-divider />
+      </template>
+
+      <CResultX v-else :error="error" title="加载错误" />
+    </CPage>
   </div>
 </template>

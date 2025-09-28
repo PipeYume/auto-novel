@@ -1,9 +1,10 @@
 <script lang="ts" setup>
 import { DeleteOutlineOutlined, PlusOutlined } from '@vicons/material';
-import { UploadCustomRequestOptions } from 'naive-ui';
+import type { UploadCustomRequestOptions } from 'naive-ui';
 
-import { Locator } from '@/data';
-import { ParsedFile, parseFile } from '@/util/file';
+import { useLocalVolumeStore } from '@/stores';
+import type { ParsedFile } from '@/util/file';
+import { parseFile } from '@/util/file';
 
 const message = useMessage();
 
@@ -35,7 +36,7 @@ const clearFile = () => {
 };
 
 const loadLocalFile = (volumeId: string) =>
-  Locator.localVolumeRepository()
+  useLocalVolumeStore()
     .then((repo) => repo.getFile(volumeId))
     .then((file) => {
       if (file === undefined) throw '小说不存在';
@@ -90,7 +91,7 @@ const showListModal = ref(false);
     </n-flex>
 
     <n-flex vertical style="margin-top: 16px">
-      <n-text v-for="file of files">
+      <n-text v-for="file of files" :key="file.name">
         <toolbox-file-card :file="file" @delete="removeFile(file.name)" />
       </n-text>
     </n-flex>

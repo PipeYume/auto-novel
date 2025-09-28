@@ -1,12 +1,8 @@
-import { Locator } from '@/data';
-import { Glossary } from '@/model/Glossary';
+import { createOpenAiApi } from '@/api';
+import type { Glossary } from '@/model/Glossary';
 
-import {
-  Logger,
-  SegmentContext,
-  SegmentTranslator,
-  createLengthSegmentor,
-} from './Common';
+import type { Logger, SegmentContext, SegmentTranslator } from './Common';
+import { createLengthSegmentor } from './Common';
 
 export class SakuraTranslator implements SegmentTranslator {
   id = <const>'sakura';
@@ -26,7 +22,7 @@ export class SakuraTranslator implements SegmentTranslator {
     { endpoint, segLength, prevSegLength }: SakuraTranslator.Config,
   ) {
     this.log = log;
-    this.api = Locator.openAiRepositoryFactory(endpoint, 'no-key');
+    this.api = createOpenAiApi(endpoint, 'no-key');
     if (segLength !== undefined) {
       this.segmentor = createLengthSegmentor(segLength);
       this.segLength = segLength;
@@ -281,13 +277,7 @@ export namespace SakuraTranslator {
   export const create = (log: Logger, config: Config) =>
     new SakuraTranslator(log, config).init();
 
-  const model = (repo: string, model: string, fingerprint: number[][]) => ({
-    repo,
-    model,
-    fingerprint,
-  });
-
-  export type ModelMeta = Record<string, any>;
+  export type ModelMeta = Record<string, number>;
   export const allowModels: {
     [key: string]: { repo: string; meta: ModelMeta };
   } = {

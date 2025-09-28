@@ -1,10 +1,9 @@
 <script lang="ts" setup>
 import { MoreVertOutlined } from '@vicons/material';
-import { FormInst, FormItemRule, FormRules } from 'naive-ui';
-
-import { Locator } from '@/data';
+import type { FormInst, FormItemRule, FormRules } from 'naive-ui';
 
 import { doAction } from '@/pages/util';
+import { FavoredRepo } from '@/stores';
 import { useBookshelfLocalStore } from '../BookshelfLocalStore';
 
 const { id, type, title } = defineProps<{
@@ -13,7 +12,6 @@ const { id, type, title } = defineProps<{
   type: 'web' | 'wenku' | 'local';
 }>();
 
-const favoredRepository = Locator.favoredRepository();
 const store = useBookshelfLocalStore();
 
 const message = useMessage();
@@ -42,7 +40,7 @@ const onSelect = (key: string) => {
 };
 
 const showEditModal = ref(false);
-const formRef = ref<FormInst | null>(null);
+const formRef = useTemplateRef<FormInst>('form');
 const formValue = ref({ title });
 const formRules: FormRules = {
   title: [
@@ -67,7 +65,7 @@ const updateFavored = async () => {
   const title = formValue.value.title;
 
   await doAction(
-    favoredRepository.updateFavored(type, id, title).then(() => {
+    FavoredRepo.updateFavored(type, id, title).then(() => {
       showEditModal.value = false;
     }),
     '收藏夹更新',
@@ -90,7 +88,7 @@ const showDeleteModal = ref(false);
 const deleteFavored = () =>
   doAction(
     deleteFavoredNovels()
-      .then(() => favoredRepository.deleteFavored(type, id))
+      .then(() => FavoredRepo.deleteFavored(type, id))
       .then(() => (showDeleteModal.value = false)),
     '收藏夹删除',
     message,
@@ -117,7 +115,7 @@ const deleteFavored = () =>
 
   <c-modal v-model:show="showEditModal" title="编辑收藏夹">
     <n-form
-      ref="formRef"
+      ref="form"
       :model="formValue"
       :rules="formRules"
       label-placement="left"

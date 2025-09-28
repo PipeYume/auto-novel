@@ -12,7 +12,7 @@ export namespace Glossary {
       for (const jp in obj) {
         const zh = obj[jp];
         if (typeof zh !== 'string') return;
-        glossary[jp] = zh;
+        glossary[jp.trim()] = zh.trim();
       }
       return glossary;
     } catch {
@@ -36,7 +36,6 @@ export namespace Glossary {
       if (line === '') continue;
 
       const parts = line.split(delimiter);
-      console.log(parts);
       if (parts.length !== 2) return;
 
       const [jp, zh] = parts;

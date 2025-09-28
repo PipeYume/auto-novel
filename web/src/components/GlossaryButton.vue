@@ -1,11 +1,11 @@
 <script lang="ts" setup>
 import { DeleteOutlineOutlined } from '@vicons/material';
 
-import { Locator } from '@/data';
+import { WebNovelApi, WenkuNovelApi } from '@/api';
 import { GenericNovelId } from '@/model/Common';
 import { Glossary } from '@/model/Glossary';
-
-import { doAction, copyToClipBoard } from '@/pages/util';
+import { copyToClipBoard, doAction } from '@/pages/util';
+import { useLocalVolumeStore, useWhoamiStore } from '@/stores';
 import { downloadFile } from '@/util';
 
 const props = defineProps<{
@@ -15,7 +15,8 @@ const props = defineProps<{
 
 const message = useMessage();
 
-const { whoami } = Locator.authRepository();
+const whoamiStore = useWhoamiStore();
+const { whoami } = storeToRefs(whoamiStore);
 
 const glossary = ref<Glossary>({});
 
@@ -44,18 +45,15 @@ const updateGlossary = async () => {
   }
   const glossaryValue = toRaw(glossary.value);
   if (gnid.type === 'web') {
-    await Locator.webNovelRepository.updateGlossary(
+    await WebNovelApi.updateGlossary(
       gnid.providerId,
       gnid.novelId,
       glossaryValue,
     );
   } else if (gnid.type === 'wenku') {
-    await Locator.wenkuNovelRepository.updateGlossary(
-      gnid.novelId,
-      glossaryValue,
-    );
+    await WenkuNovelApi.updateGlossary(gnid.novelId, glossaryValue);
   } else {
-    const repo = await Locator.localVolumeRepository();
+    const repo = await useLocalVolumeStore();
     await repo.updateGlossary(gnid.volumeId, glossaryValue);
   }
 };
@@ -106,7 +104,7 @@ const deleteTerm = (jp: string) => {
 const addTerm = () => {
   const [jp, zh] = termsToAdd.value;
   if (jp && zh) {
-    glossary.value[jp] = zh;
+    glossary.value[jp.trim()] = zh.trim();
     termsToAdd.value = ['', ''];
   }
 };
@@ -220,7 +218,7 @@ const downloadGlossaryAsJsonFile = async (ev: MouseEvent) => {
             @action="downloadGlossaryAsJsonFile"
           />
           <c-button
-            v-if="whoami.isMaintainer"
+            v-if="whoami.isAdmin"
             secondary
             type="error"
             label="清空"
@@ -254,7 +252,7 @@ const downloadGlossaryAsJsonFile = async (ev: MouseEvent) => {
       size="small"
       style="font-size: 12px; max-width: 400px"
     >
-      <tr v-for="wordJp in Object.keys(glossary).reverse()">
+      <tr v-for="wordJp in Object.keys(glossary).reverse()" :key="wordJp">
         <td>
           <c-button
             :icon="DeleteOutlineOutlined"

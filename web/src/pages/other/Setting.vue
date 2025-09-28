@@ -1,20 +1,25 @@
 <script lang="ts" setup>
-import { Locator } from '@/data';
-import { Setting } from '@/data/setting/Setting';
 import SoundAllTaskCompleted from '@/sound/all_task_completed.mp3';
+import {
+  Setting,
+  useSettingStore,
+  useWebSearchHistoryStore,
+  useWenkuSearchHistoryStore,
+} from '@/stores';
 import { InfoOutlined } from '@vicons/material';
 
 const message = useMessage();
 
-const { setting } = Locator.settingRepository();
+const settingStore = useSettingStore();
+const { setting } = storeToRefs(settingStore);
 
 const clearWebSearchHistory = () => {
-  Locator.webSearchHistoryRepository().clear();
+  useWebSearchHistoryStore().clear();
   message.success('清空成功');
 };
 
 const clearWenkuSearchHistory = () => {
-  Locator.wenkuSearchHistoryRepository().clear();
+  useWenkuSearchHistoryStore().clear();
   message.success('清空成功');
 };
 
@@ -153,6 +158,15 @@ const playSound = (source: string) => {
               size="small"
               @action="clearWenkuSearchHistory"
             />
+          </n-flex>
+        </n-flex>
+      </n-list-item>
+
+      <n-list-item>
+        <n-flex vertical>
+          <b>黑名单</b>
+          <n-flex>
+            <user-block-button />
           </n-flex>
         </n-flex>
       </n-list-item>

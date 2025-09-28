@@ -1,16 +1,15 @@
 <script lang="ts" setup>
-import { Locator } from '@/data';
 import { GenericNovelId } from '@/model/Common';
-import { LocalVolumeMetadata } from '@/model/LocalVolume';
-import { TranslatorId } from '@/model/Translator';
-
-import TranslateTask from '@/components/TranslateTask.vue';
+import type { LocalVolumeMetadata } from '@/model/LocalVolume';
+import type { TranslatorId } from '@/model/Translator';
+import { useSettingStore } from '@/stores';
 
 const props = defineProps<{
   volume: LocalVolumeMetadata;
 }>();
 
-const { setting } = Locator.settingRepository();
+const settingStore = useSettingStore();
+const { setting } = storeToRefs(settingStore);
 
 const calculateFinished = (translatorId: TranslatorId) =>
   props.volume.toc.filter((it) => it[translatorId]).length;
@@ -20,7 +19,7 @@ const youdao = ref(calculateFinished('youdao'));
 const gpt = ref(calculateFinished('gpt'));
 const sakura = ref(calculateFinished('sakura'));
 
-const translateTask = ref<InstanceType<typeof TranslateTask>>();
+const translateTask = useTemplateRef('translateTask');
 const startTranslateTask = (translatorId: 'baidu' | 'youdao') =>
   translateTask?.value?.startTask(
     { type: 'local', volumeId: props.volume.id },

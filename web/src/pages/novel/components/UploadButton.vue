@@ -1,13 +1,14 @@
 <script lang="ts" setup>
 import { PlusOutlined } from '@vicons/material';
-import {
+import type {
   UploadCustomRequestOptions,
   UploadFileInfo,
   UploadInst,
 } from 'naive-ui';
 
-import { Locator, formatError } from '@/data';
-import { useWenkuNovelStore } from '../WenkuNovelStore';
+import { formatError } from '@/api';
+import { WenkuNovelRepo } from '@/repos';
+import { useNoticeStore, useWhoamiStore } from '@/stores';
 import { RegexUtil } from '@/util';
 import { getFullContent } from '@/util/file';
 
@@ -18,9 +19,8 @@ const props = defineProps<{
 
 const message = useMessage();
 
-const { whoami } = Locator.authRepository();
-
-const store = useWenkuNovelStore(props.novelId);
+const whoamiStore = useWhoamiStore();
+const { whoami } = storeToRefs(whoamiStore);
 
 async function beforeUpload({ file }: { file: UploadFileInfo }) {
   if (!whoami.value.isSignedIn) {
@@ -43,7 +43,14 @@ async function beforeUpload({ file }: { file: UploadFileInfo }) {
     return false;
   }
 
-  const content = await getFullContent(file.file);
+  let content: string;
+  try {
+    content = await getFullContent(file.file);
+  } catch (e) {
+    console.error(e);
+    message.error(`文件解析错误:${e}`);
+    return false;
+  }
   const charsCount = RegexUtil.countLanguageCharacters(content);
   if (charsCount.total < 500) {
     message.error('字数过少，请检查内容是不是图片');
@@ -76,8 +83,12 @@ const customRequest = async ({
 
   try {
     const type = file.url === 'jp' ? 'jp' : 'zh';
-    await store.createVolume(file.name, type, file.file as File, (percent) =>
-      onProgress({ percent }),
+    await WenkuNovelRepo.createVolume(
+      props.novelId,
+      file.name,
+      type,
+      file.file as File,
+      (percent) => onProgress({ percent }),
     );
     onFinish();
   } catch (e) {
@@ -86,16 +97,18 @@ const customRequest = async ({
   }
 };
 
-const ruleViewed = Locator.ruleViewedRepository().ref;
+const noticeStore = useNoticeStore();
+const { noticed } = storeToRefs(noticeStore);
+
 const showRuleModal = ref(false);
 const haveReadRule = computed(() => {
-  const durationSinceLastRead = Date.now() - ruleViewed.value.wenkuUploadRule;
+  const durationSinceLastRead = Date.now() - noticed.value.wenkuUploadRule;
   return durationSinceLastRead < 24 * 3600 * 1000;
 });
-const uploadRef = ref<UploadInst>();
+const uploadRef = useTemplateRef<UploadInst>('upload');
 const uploadVolumes = () => {
   showRuleModal.value = true;
-  ruleViewed.value.wenkuUploadRule = Date.now();
+  noticed.value.wenkuUploadRule = Date.now();
 };
 </script>
 
@@ -107,7 +120,7 @@ const uploadVolumes = () => {
     @action="uploadVolumes"
   />
   <n-upload
-    ref="uploadRef"
+    ref="upload"
     accept=".txt,.epub"
     multiple
     :custom-request="customRequest"

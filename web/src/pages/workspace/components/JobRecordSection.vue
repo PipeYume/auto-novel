@@ -5,9 +5,9 @@ import {
   RefreshOutlined,
 } from '@vicons/material';
 
-import { Locator } from '@/data';
 import { TranslateJob, TranslateTaskDescriptor } from '@/model/Translator';
 import { useBookshelfLocalStore } from '@/pages/bookshelf/BookshelfLocalStore';
+import { useWorkspaceStore } from '@/stores';
 
 const props = defineProps<{
   id: 'gpt' | 'sakura';
@@ -15,10 +15,7 @@ const props = defineProps<{
 
 const message = useMessage();
 
-const workspace =
-  props.id === 'gpt'
-    ? Locator.gptWorkspaceRepository()
-    : Locator.sakuraWorkspaceRepository();
+const workspace = useWorkspaceStore(props.id);
 const workspaceRef = workspace.ref;
 
 const store = useBookshelfLocalStore();

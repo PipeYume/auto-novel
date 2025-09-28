@@ -1,6 +1,8 @@
-import { Locator } from '@/data';
+import { WebNovelApi } from '@/api';
 import { GenericNovelId } from '@/model/Common';
-import { Ok, Result, runCatching } from '@/util/result';
+import { useLocalVolumeStore } from '@/stores';
+import type { Result } from '@/util/result';
+import { Ok, runCatching } from '@/util/result';
 
 export interface ReaderChapter {
   titleJp: string;
@@ -73,15 +75,11 @@ const getChapter = async (
   chapterId: string,
 ): Promise<ReaderChapter> => {
   if (gnid.type === 'web') {
-    return Locator.webNovelRepository.getChapter(
-      gnid.providerId,
-      gnid.novelId,
-      chapterId,
-    );
+    return WebNovelApi.getChapter(gnid.providerId, gnid.novelId, chapterId);
   } else if (gnid.type === 'wenku') {
     throw '不支持文库';
   } else {
-    const repo = await Locator.localVolumeRepository();
+    const repo = await useLocalVolumeStore();
 
     const volumeId = gnid.volumeId;
     const volume = await repo.getVolume(volumeId);

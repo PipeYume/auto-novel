@@ -10,14 +10,11 @@ import {
   StopOutlined,
 } from '@vicons/material';
 
-import { Locator } from '@/data';
-import { Translator, TranslatorConfig } from '@/domain/translate';
-import {
-  GptWorker,
-  SakuraWorker,
-  TranslateTaskDescriptor,
-} from '@/model/Translator';
-import TranslateTask from '@/components/TranslateTask.vue';
+import type { TranslatorConfig } from '@/domain/translate';
+import { Translator } from '@/domain/translate';
+import type { GptWorker, SakuraWorker } from '@/model/Translator';
+import { TranslateTaskDescriptor } from '@/model/Translator';
+import { useWorkspaceStore } from '@/stores';
 
 const props = defineProps<{
   worker:
@@ -75,7 +72,7 @@ const endpointPrefix = computed(() => {
 
 const enableAutoMode = ref(true);
 
-const translateTask = ref<InstanceType<typeof TranslateTask>>();
+const translateTask = useTemplateRef('translateTask');
 const currentJob = ref<{
   task: string;
   description: string;
@@ -134,10 +131,7 @@ const stopWorker = () => {
 const deleteWorker = () => {
   const worker = props.worker;
   abortHandler();
-  const workspace =
-    worker.translatorId === 'gpt'
-      ? Locator.gptWorkspaceRepository()
-      : Locator.sakuraWorkspaceRepository();
+  const workspace = useWorkspaceStore(worker.translatorId);
   workspace.deleteWorker(worker.id);
 };
 
@@ -253,7 +247,7 @@ const showEditWorkerModal = ref(false);
     </template>
   </n-thing>
 
-  <translate-task ref="translateTask" style="margin-top: 20px" />
+  <TranslateTask ref="translateTask" style="margin-top: 20px" />
 
   <sakura-worker-modal
     v-if="worker.translatorId === 'sakura'"

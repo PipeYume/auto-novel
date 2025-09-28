@@ -1,8 +1,8 @@
 <script lang="ts" setup>
 import { UploadOutlined } from '@vicons/material';
 
+import { WebNovelRepo } from '@/repos';
 import { doAction, useIsWideScreen } from '@/pages/util';
-import { useWebNovelStore } from './WebNovelStore';
 
 const { providerId, novelId } = defineProps<{
   providerId: string;
@@ -12,8 +12,6 @@ const { providerId, novelId } = defineProps<{
 const router = useRouter();
 const isWideScreen = useIsWideScreen();
 const message = useMessage();
-
-const store = useWebNovelStore(providerId, novelId);
 
 const allowSubmit = ref(false);
 const formValue = ref({
@@ -25,31 +23,33 @@ const formValue = ref({
   toc: <{ jp: string; zh: string }[]>[],
 });
 
-store.loadNovel().then((result) => {
-  if (result.ok) {
-    const tocSet = new Set();
-    formValue.value = {
-      titleJp: result.value.titleJp,
-      title: result.value.titleZh ?? '',
-      introductionJp: result.value.introductionJp,
-      introduction: result.value.introductionZh ?? '',
-      wenkuId: result.value.wenkuId ?? '',
-      toc: result.value.toc
-        .filter((item) => {
-          const inSet = tocSet.has(item.titleJp);
-          if (!inSet) tocSet.add(item.titleJp);
-          return !inSet;
-        })
-        .map((item) => ({
-          jp: item.titleJp,
-          zh: item.titleZh ?? '',
-        })),
-    };
-    allowSubmit.value = true;
-  } else {
-    message.error('载入失败');
-  }
-});
+WebNovelRepo.useWebNovel(providerId, novelId, false)
+  .refresh()
+  .then(({ data, error }) => {
+    if (data) {
+      const tocSet = new Set();
+      formValue.value = {
+        titleJp: data.titleJp,
+        title: data.titleZh ?? '',
+        introductionJp: data.introductionJp,
+        introduction: data.introductionZh ?? '',
+        wenkuId: data.wenkuId ?? '',
+        toc: data.toc
+          .filter((item) => {
+            const inSet = tocSet.has(item.titleJp);
+            if (!inSet) tocSet.add(item.titleJp);
+            return !inSet;
+          })
+          .map((item) => ({
+            jp: item.titleJp,
+            zh: item.titleZh ?? '',
+          })),
+      };
+      allowSubmit.value = true;
+    } else {
+      message.error(`载入失败: ${error?.message}`);
+    }
+  });
 
 const submit = async () => {
   if (!allowSubmit.value) {
@@ -58,19 +58,17 @@ const submit = async () => {
   }
 
   await doAction(
-    store
-      .updateNovel({
-        title: formValue.value.title.trim(),
-        introduction: formValue.value.introduction.trim(),
-        wenkuId: formValue.value.wenkuId.trim(),
-        toc: Object.assign(
-          {},
-          ...formValue.value.toc.map((item) => ({ [item.jp]: item.zh })),
-        ),
-      })
-      .then(() => {
-        router.push({ path: `/novel/${providerId}/${novelId}` });
-      }),
+    WebNovelRepo.updateNovel(providerId, novelId, {
+      title: formValue.value.title.trim(),
+      introduction: formValue.value.introduction.trim(),
+      wenkuId: formValue.value.wenkuId.trim(),
+      toc: Object.assign(
+        {},
+        ...formValue.value.toc.map((item) => ({ [item.jp]: item.zh })),
+      ),
+    }).then(() => {
+      router.push({ path: `/novel/${providerId}/${novelId}` });
+    }),
     '编辑',
     message,
   );
@@ -82,7 +80,6 @@ const submit = async () => {
     <n-h1>编辑网络小说</n-h1>
 
     <n-form
-      ref="formRef"
       :model="formValue"
       :label-placement="isWideScreen ? 'left' : 'top'"
       label-width="auto"
@@ -130,7 +127,7 @@ const submit = async () => {
       </n-text>
     </n-p>
     <n-table :bordered="false" :bottom-bordered="false" style="width: 100%">
-      <tr v-for="token in formValue.toc">
+      <tr v-for="token in formValue.toc" :key="token.jp">
         <td style="width: 50%; padding: 4px">
           {{ token.jp }}
           <br />

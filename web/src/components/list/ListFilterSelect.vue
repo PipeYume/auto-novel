@@ -1,0 +1,56 @@
+<script setup lang="ts">
+import { SyncAltOutlined } from '@vicons/material';
+import type { ListSelectOption } from './types';
+
+const value = defineModel<number>('value', { required: true });
+
+const props = defineProps<{
+  label: string;
+  option: ListSelectOption;
+}>();
+
+function isSelected(index: number) {
+  if (props.option.multiple) {
+    return (value.value & (1 << index)) != 0;
+  } else {
+    return value.value === index;
+  }
+}
+
+function updateSelect(optionIndex: number) {
+  value.value = props.option.multiple
+    ? value.value ^ (1 << optionIndex)
+    : optionIndex;
+}
+
+function invertSelection() {
+  if (props.option.multiple) {
+    value.value = value.value ^ (2 ** props.option.tags.length - 1);
+  }
+}
+</script>
+
+<template>
+  <CActionWrapper :title="label" align="baseline" size="large">
+    <n-flex :size="[16, 4]">
+      <n-text
+        v-for="(tag, index) in option.tags"
+        :key="tag"
+        text
+        :type="isSelected(index) ? 'primary' : 'default'"
+        @click="updateSelect(index)"
+        style="cursor: pointer"
+      >
+        {{ tag }}
+      </n-text>
+
+      <c-button
+        v-if="option.multiple"
+        :icon="SyncAltOutlined"
+        type="primary"
+        text
+        @click="invertSelection()"
+      />
+    </n-flex>
+  </CActionWrapper>
+</template>

@@ -2,14 +2,11 @@
 import { FileDownloadOutlined } from '@vicons/material';
 import { useKeyModifier } from '@vueuse/core';
 
-import { Locator } from '@/data';
-import { WenkuNovelRepository } from '@/data/api';
-import {
-  TranslateTaskDescriptor,
-  TranslateTaskParams,
-} from '@/model/Translator';
-import { VolumeJpDto } from '@/model/WenkuNovel';
-import TranslateTask from '@/components/TranslateTask.vue';
+import { WenkuNovelApi } from '@/api';
+import type { TranslateTaskParams } from '@/model/Translator';
+import { TranslateTaskDescriptor } from '@/model/Translator';
+import type { VolumeJpDto } from '@/model/WenkuNovel';
+import { useSettingStore, useWhoamiStore, useWorkspaceStore } from '@/stores';
 
 const { novelId, volume, getParams } = defineProps<{
   novelId: string;
@@ -23,10 +20,13 @@ const emit = defineEmits<{
 
 const message = useMessage();
 
-const { setting } = Locator.settingRepository();
-const { whoami } = Locator.authRepository();
+const settingStore = useSettingStore();
+const { setting } = storeToRefs(settingStore);
 
-const translateTask = ref<InstanceType<typeof TranslateTask>>();
+const whoamiStore = useWhoamiStore();
+const { whoami } = storeToRefs(whoamiStore);
+
+const translateTask = useTemplateRef('translateTask');
 const startTranslateTask = (translatorId: 'baidu' | 'youdao') => {
   return translateTask?.value?.startTask(
     { type: 'wenku', novelId, volumeId: volume.volumeId },
@@ -38,7 +38,7 @@ const startTranslateTask = (translatorId: 'baidu' | 'youdao') => {
 const file = computed(() => {
   const { mode, translationsMode, translations } = setting.value.downloadFormat;
 
-  const { url, filename } = WenkuNovelRepository.createFileUrl({
+  const { url, filename } = WenkuNovelApi.createFileUrl({
     novelId,
     volumeId: volume.volumeId,
     mode,
@@ -55,10 +55,7 @@ const submitJob = (id: 'gpt' | 'sakura') => {
     volume.volumeId,
     getParams(),
   );
-  const workspace =
-    id === 'gpt'
-      ? Locator.gptWorkspaceRepository()
-      : Locator.sakuraWorkspaceRepository();
+  const workspace = useWorkspaceStore(id);
   const job = {
     task,
     description: volume.volumeId,
@@ -117,7 +114,7 @@ const submitJob = (id: 'gpt' | 'sakura') => {
           @action="submitJob('sakura')"
         />
         <c-button-confirm
-          v-if="whoami.asMaintainer"
+          v-if="whoami.asAdmin"
           :hint="`真的要删除《${volume.volumeId}》吗？`"
           label="删除"
           type="error"

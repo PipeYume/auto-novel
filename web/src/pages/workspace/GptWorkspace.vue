@@ -6,14 +6,14 @@ import {
 } from '@vicons/material';
 import { VueDraggable } from 'vue-draggable-plus';
 
-import { Locator } from '@/data';
-import { TranslateJob } from '@/model/Translator';
-
+import { TranslationCacheRepo } from '@/repos';
+import type { TranslateJob } from '@/model/Translator';
 import { doAction } from '@/pages/util';
+import { useGptWorkspaceStore } from '@/stores';
 
 const message = useMessage();
 
-const workspace = Locator.gptWorkspaceRepository();
+const workspace = useGptWorkspaceStore();
 const workspaceRef = workspace.ref;
 
 const showCreateWorkerModal = ref(false);
@@ -75,11 +75,7 @@ const onProgressUpdated = (
 };
 
 const clearCache = async () =>
-  doAction(
-    Locator.cachedSegRepository().then((repo) => repo.clear('gpt-seg-cache')),
-    '缓存清除',
-    message,
-  );
+  doAction(TranslationCacheRepo.clear('gpt-seg-cache'), '缓存清除', message);
 </script>
 
 <template>
@@ -126,7 +122,7 @@ const clearCache = async () =>
         :animation="150"
         handle=".drag-trigger"
       >
-        <n-list-item v-for="worker of workspaceRef.workers">
+        <n-list-item v-for="worker of workspaceRef.workers" :key="worker.id">
           <job-worker
             :worker="{ translatorId: 'gpt', ...worker }"
             :get-next-job="getNextJob"

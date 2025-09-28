@@ -1,29 +1,25 @@
 <script lang="ts" setup>
 import { darkTheme, dateZhCN, useOsTheme, zhCN } from 'naive-ui';
 
-import { Locator } from '@/data';
+import {
+  useReaderSettingStore,
+  useSettingStore,
+  useWhoamiStore,
+} from '@/stores';
 import { RegexUtil } from '@/util';
 
 // 激活权限
-const authRepository = Locator.authRepository();
-authRepository.activateAuth();
+useWhoamiStore();
 
-const settingRepository = Locator.settingRepository();
-settingRepository.activateCC();
+const settingStore = useSettingStore();
+const { setting } = storeToRefs(settingStore);
 
-// 清理pinia留下的垃圾
-Object.keys(window.localStorage).forEach((key) => {
-  if (key.startsWith('pubkey')) {
-    window.localStorage.removeItem(key);
-  }
-});
+const readerSettingStore = useReaderSettingStore();
+const { readerSetting } = storeToRefs(readerSettingStore);
 
 // 主题
 const route = useRoute();
 const osThemeRef = useOsTheme();
-
-const setting = settingRepository.setting;
-const { setting: readerSetting } = Locator.readerSettingRepository();
 
 const isDarkColor = (color: string) => {
   const r = parseInt(color.substring(1, 3), 16);

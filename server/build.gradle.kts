@@ -7,6 +7,7 @@ plugins {
 group = "me.fishhawk"
 version = "0.0.1"
 
+
 kotlin {
     jvmToolchain {
         languageVersion.set(JavaLanguageVersion.of(17))
@@ -62,11 +63,14 @@ dependencies {
 
     implementation("io.github.crackthecodeabhi:kreds:0.9.1")
 
-    val kotestVersion = "5.5.4"
+    val kotestVersion = "5.9.1"
     testImplementation("io.kotest:kotest-runner-junit5:$kotestVersion")
     testImplementation("io.kotest:kotest-assertions-core:$kotestVersion")
     testImplementation("io.kotest.extensions:kotest-extensions-koin:1.1.0")
     testImplementation("io.kotest:kotest-assertions-ktor:4.4.3")
+
+    implementation("com.google.jimfs:jimfs:1.3.0")
+    implementation("net.lingala.zip4j:zip4j:2.11.5")
 }
 
 application {

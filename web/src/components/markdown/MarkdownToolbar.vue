@@ -9,9 +9,9 @@ import {
   StrikethroughSOutlined,
   WarningAmberOutlined,
 } from '@vicons/material';
-import { DropdownOption } from 'naive-ui';
+import type { DropdownOption } from 'naive-ui';
 
-import { Draft } from '@/data/stores/DraftRepository';
+import type { Draft } from '@/stores';
 
 const props = defineProps<{
   elTextarea?: HTMLTextAreaElement;

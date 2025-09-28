@@ -2,13 +2,15 @@
 import { useKeyModifier } from '@vueuse/core';
 import ky from 'ky';
 
-import { Locator } from '@/data';
-import { WebNovelRepository } from '@/data/api';
+import { WebNovelApi } from '@/api';
 import { GenericNovelId } from '@/model/Common';
 import { TranslateTaskDescriptor } from '@/model/Translator';
-
-import TranslateTask from '@/components/TranslateTask.vue';
-import TranslateOptions from './TranslateOptions.vue';
+import {
+  useLocalVolumeStore,
+  useSettingStore,
+  useWhoamiStore,
+  useWorkspaceStore,
+} from '@/stores';
 
 const props = defineProps<{
   providerId: string;
@@ -35,11 +37,14 @@ const emit = defineEmits<{
 
 const message = useMessage();
 
-const { whoami } = Locator.authRepository();
-const { setting } = Locator.settingRepository();
+const whoamiStore = useWhoamiStore();
+const { whoami } = storeToRefs(whoamiStore);
 
-const translateOptions = ref<InstanceType<typeof TranslateOptions>>();
-const translateTask = ref<InstanceType<typeof TranslateTask>>();
+const settingStore = useSettingStore();
+const { setting } = storeToRefs(settingStore);
+
+const translateOptions = useTemplateRef('translateOptions');
+const translateTask = useTemplateRef('translateTask');
 const startTranslateTask = (translatorId: 'baidu' | 'youdao') =>
   translateTask?.value?.startTask(
     { type: 'web', providerId, novelId },
@@ -55,7 +60,7 @@ const files = computed(() => {
     setting.value.downloadFormat;
 
   return {
-    jp: WebNovelRepository.createFileUrl({
+    jp: WebNovelApi.createFileUrl({
       providerId,
       novelId,
       mode: 'jp',
@@ -64,7 +69,7 @@ const files = computed(() => {
       type,
       title,
     }),
-    zh: WebNovelRepository.createFileUrl({
+    zh: WebNovelApi.createFileUrl({
       providerId,
       novelId,
       mode: mode,
@@ -80,7 +85,7 @@ const importToWorkspace = async () => {
   const blob = await ky.get(files.value.jp.url).blob();
   const file = new File([blob], files.value.jp.filename);
 
-  const repo = await Locator.localVolumeRepository();
+  const repo = await useLocalVolumeStore();
   await repo
     .createVolume(file, 'default')
     .then(() => repo.updateGlossary(file.name, toRaw(props.glossary)))
@@ -125,10 +130,8 @@ const submitJob = (id: 'gpt' | 'sakura') => {
     tasks.push(task);
   }
 
-  const workspace =
-    id === 'gpt'
-      ? Locator.gptWorkspaceRepository()
-      : Locator.sakuraWorkspaceRepository();
+  const workspace = useWorkspaceStore(id);
+
   const results = tasks.map((task) => {
     const job = {
       task,
@@ -156,7 +159,7 @@ const submitJob = (id: 'gpt' | 'sakura') => {
   <n-text v-else-if="setting.enabledTranslator.length === 0">
     没有翻译器启用。
   </n-text>
-  <translate-options
+  <TranslateOptions
     v-else
     ref="translateOptions"
     :gnid="GenericNovelId.web(providerId, novelId)"

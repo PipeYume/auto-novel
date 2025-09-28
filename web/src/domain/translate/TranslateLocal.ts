@@ -1,12 +1,15 @@
-import { Locator, formatError } from '@/data';
-import { ChapterTranslation, LocalVolumeMetadata } from '@/model/LocalVolume';
-import {
+import { formatError } from '@/api';
+import type {
+  ChapterTranslation,
+  LocalVolumeMetadata,
+} from '@/model/LocalVolume';
+import type {
   LocalTranslateTaskDesc,
   TranslateTaskCallback,
   TranslateTaskParams,
 } from '@/model/Translator';
-
-import { Translator } from './Translator';
+import { useLocalVolumeStore } from '@/stores';
+import type { Translator } from './Translator';
 
 export const translateLocal = async (
   { volumeId }: LocalTranslateTaskDesc,
@@ -15,7 +18,7 @@ export const translateLocal = async (
   translator: Translator,
   signal?: AbortSignal,
 ) => {
-  const localVolumeRepository = await Locator.localVolumeRepository();
+  const localVolumeRepository = await useLocalVolumeStore();
   // Api
   const getVolume = () => localVolumeRepository.getVolume(volumeId);
 
@@ -105,11 +108,11 @@ export const translateLocal = async (
         paragraphs: textsZh,
       });
       callback.onChapterSuccess({ zh: state });
-    } catch (e: any) {
+    } catch (e) {
       if (e === 'quit') {
         callback.log(`发生错误，结束翻译任务`);
         return;
-      } else if (e.name === 'AbortError') {
+      } else if (e instanceof DOMException && e.name === 'AbortError') {
         callback.log(`中止翻译任务`);
         return 'abort';
       } else {
