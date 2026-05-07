@@ -1,21 +1,20 @@
 import * as cheerio from 'cheerio';
 import type { KyInstance } from 'ky';
 
-import { parseJapanDateString } from '@/utils';
-
 import {
   type Page,
-  type RemoteChapter,
-  type RemoteNovelListItem,
-  type RemoteNovelMetadata,
-  type TocItem,
-  WebNovelAttention,
   type WebNovelAuthor,
+  type WebNovelChapter,
+  type WebNovelListItem,
+  type WebNovelMetadata,
   type WebNovelProvider,
+  type WebNovelTocItem,
+  WebNovelAttention,
   WebNovelType,
 } from './types';
 import {
   numExtractor,
+  parseJapanDateString,
   removePrefix,
   removeSuffix,
   stringToAttentionEnum,
@@ -62,11 +61,11 @@ export class Hameln implements WebNovelProvider {
 
   async getRank(
     _options: Record<string, string>,
-  ): Promise<Page<RemoteNovelListItem>> {
+  ): Promise<Page<WebNovelListItem>> {
     throw new Error('Not implemented');
   }
 
-  async getMetadata(novelId: string): Promise<RemoteNovelMetadata | null> {
+  async getMetadata(novelId: string): Promise<WebNovelMetadata | null> {
     const load = (url: string) =>
       this.client
         .get(url)
@@ -139,7 +138,7 @@ export class Hameln implements WebNovelProvider {
     const totalCharacters = numExtractor(row('合計文字数').text().trim()) ?? 0;
     const introduction = row('あらすじ').text().trim();
 
-    const toc: TocItem[] =
+    const toc: WebNovelTocItem[] =
       $list('span[itemprop=name]').length === 0
         ? [{ title: '无名', chapterId: 'default', createAt: null }]
         : $list('tbody > tr')
@@ -151,7 +150,7 @@ export class Hameln implements WebNovelProvider {
                   title: $tr.text().trim(),
                   chapterId: null,
                   createAt: null,
-                } satisfies TocItem;
+                } satisfies WebNovelTocItem;
               }
 
               const href = $a.attr('href') ?? '';
@@ -171,7 +170,7 @@ export class Hameln implements WebNovelProvider {
                     'yyyy年MM月dd日 HH:mm',
                     rawDate,
                   )?.toISOString() ?? null,
-              } satisfies TocItem;
+              } satisfies WebNovelTocItem;
             })
             .get();
 
@@ -188,7 +187,10 @@ export class Hameln implements WebNovelProvider {
     };
   }
 
-  async getChapter(novelId: string, chapterId: string): Promise<RemoteChapter> {
+  async getChapter(
+    novelId: string,
+    chapterId: string,
+  ): Promise<WebNovelChapter> {
     const url =
       chapterId === 'default'
         ? `${this.baseUrl}/novel/${novelId}`

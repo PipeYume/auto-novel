@@ -68,7 +68,9 @@ const updateChapter = (
   replace = false,
 ) => {
   if (result.ok) {
-    document.title = result.value.titleJp;
+    document.title = result.value.novelTitleJp
+      ? `${result.value.titleJp} | ${result.value.novelTitleJp}`
+      : result.value.titleJp;
     if (gnid.type === 'web' && whoami.value.isSignedIn) {
       ReadHistoryApi.updateReadHistoryWeb(
         gnid.providerId,

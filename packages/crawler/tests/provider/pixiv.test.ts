@@ -1,8 +1,6 @@
 import { afterEach, beforeAll, describe, expect, test, vi } from 'vitest';
 
 import { Pixiv } from '@/provider/pixiv';
-
-import { type RemoteChapter } from '@/provider/types';
 import { client } from './utils';
 
 describe('pixiv-single', () => {
@@ -37,7 +35,7 @@ describe('pixiv-single', () => {
 
   test('chapter', async () => {
     const chapterId = '20701222';
-    const data: RemoteChapter = await provider.getChapter(novelId, chapterId);
+    const data = await provider.getChapter(novelId, chapterId);
     expect(data).toBeDefined();
     const text = data.paragraphs.join('\n');
     expect(text).contain('一辈子，呵。');
@@ -70,7 +68,7 @@ describe('pixiv-series', () => {
     const novelId = '10999474';
     const chapterId = '20701185';
 
-    const data: RemoteChapter = await provider.getChapter(novelId, chapterId);
+    const data = await provider.getChapter(novelId, chapterId);
     expect(data).toBeDefined();
     const text = data.paragraphs.join('\n');
     expect(text).contain('若叶睦，已经死于这傍晚的盛夏。');

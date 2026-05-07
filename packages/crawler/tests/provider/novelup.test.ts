@@ -1,7 +1,6 @@
 import { describe, expect, test } from 'vitest';
 
 import { Novelup } from '@/provider/novelup';
-import { type RemoteChapter } from '@/provider/types';
 import { client } from './utils';
 
 describe('novelup', () => {
@@ -29,7 +28,7 @@ describe('novelup', () => {
     const novelId = '634490929';
     const chapterId = '248478336';
 
-    const data: RemoteChapter = await provider.getChapter(novelId, chapterId);
+    const data = await provider.getChapter(novelId, chapterId);
     expect(data).toBeDefined();
     const text = data.paragraphs.join('\n');
     expect(text).contain('魔法少女がいるのだから');

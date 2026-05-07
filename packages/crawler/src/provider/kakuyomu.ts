@@ -3,13 +3,13 @@ import type { KyInstance } from 'ky';
 
 import {
   type Page,
-  type RemoteChapter,
-  type RemoteNovelListItem,
-  type RemoteNovelMetadata,
-  type TocItem,
-  WebNovelAttention,
   type WebNovelAuthor,
+  type WebNovelChapter,
+  type WebNovelListItem,
+  type WebNovelMetadata,
   type WebNovelProvider,
+  type WebNovelTocItem,
+  WebNovelAttention,
   WebNovelType,
   emptyPage,
 } from './types';
@@ -85,7 +85,7 @@ export class Kakuyomu implements WebNovelProvider<GetRankOptions> {
     this.client = client;
   }
 
-  async getRank(options: GetRankOptions): Promise<Page<RemoteNovelListItem>> {
+  async getRank(options: GetRankOptions): Promise<Page<WebNovelListItem>> {
     const genreId = GENRE_IDS[options['genre']];
     if (!genreId) return emptyPage();
 
@@ -131,7 +131,7 @@ export class Kakuyomu implements WebNovelProvider<GetRankOptions> {
             .map((_, el) => $(el).text().trim())
             .get()
             .join(' / '),
-        } satisfies RemoteNovelListItem;
+        } satisfies WebNovelListItem;
       })
       .get()
       .filter((item) => item.novelId && item.title);
@@ -142,7 +142,7 @@ export class Kakuyomu implements WebNovelProvider<GetRankOptions> {
     };
   }
 
-  async getMetadata(novelId: string): Promise<RemoteNovelMetadata | null> {
+  async getMetadata(novelId: string): Promise<WebNovelMetadata | null> {
     const $ = await this.client
       .get(`https://kakuyomu.jp/works/${novelId}`)
       .text()
@@ -192,7 +192,7 @@ export class Kakuyomu implements WebNovelProvider<GetRankOptions> {
     const totalCharacters = work.totalCharacterCount ?? 0;
     const introduction = work.introduction ?? '';
 
-    const toc: TocItem[] = [];
+    const toc: WebNovelTocItem[] = [];
     const tableOfContents = Array.isArray(work.tableOfContents)
       ? work.tableOfContents
       : [];
@@ -241,7 +241,10 @@ export class Kakuyomu implements WebNovelProvider<GetRankOptions> {
     };
   }
 
-  async getChapter(novelId: string, chapterId: string): Promise<RemoteChapter> {
+  async getChapter(
+    novelId: string,
+    chapterId: string,
+  ): Promise<WebNovelChapter> {
     const $ = await this.client
       .get(`https://kakuyomu.jp/works/${novelId}/episodes/${chapterId}`)
       .text()

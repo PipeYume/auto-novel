@@ -1,8 +1,6 @@
 import { describe, expect, test } from 'vitest';
 
 import { Alphapolis } from '@/provider/alphapolis';
-import { type RemoteChapter } from '@/provider/types';
-
 import { client } from './utils';
 
 const shouldSkip = !process.env.ALL_TEST;
@@ -48,7 +46,7 @@ describe.skipIf(shouldSkip)('alphapolis', () => {
     const novelId = '482159232-437919648';
     const chapterId = '9003705';
 
-    const data: RemoteChapter = await provider.getChapter(novelId, chapterId);
+    const data = await provider.getChapter(novelId, chapterId);
     expect(data).toBeDefined();
     const text = data.paragraphs.join('\n');
     expect(text).contain('だからお前が魔法少女に変身して魔法を使うんだよ');

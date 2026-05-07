@@ -11,7 +11,7 @@ import {
   useWhoamiStore,
   useWorkspaceStore,
 } from '@/stores';
-import { Crawler } from '@/domain/crawler';
+import { CrawlerService } from '@/domain/crawler';
 import { doAction } from '@/pages/util';
 
 const props = defineProps<{
@@ -84,12 +84,12 @@ const files = computed(() => {
 });
 
 const updateNovel = () => {
-  if (!Crawler.checkAddon()) {
+  if (!CrawlerService.checkAddon()) {
     message.error('无法更新目录：未检测到Addon');
     return;
   }
   return doAction(
-    Crawler.updateWebNovel(providerId, novelId),
+    CrawlerService.updateWebNovel(providerId, novelId),
     '更新小说（伪）',
     message,
   );

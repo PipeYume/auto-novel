@@ -1,8 +1,7 @@
 import { describe, expect, test } from 'vitest';
 
 import { Hameln } from '@/provider/hameln';
-
-import { WebNovelAttention, type RemoteChapter } from '@/provider/types';
+import { WebNovelAttention } from '@/provider/types';
 import { client } from './utils';
 
 describe('hameln', () => {
@@ -33,7 +32,7 @@ describe('hameln', () => {
     const novelId = '320297';
     const chapterId = '174';
 
-    const data: RemoteChapter = await provider.getChapter(novelId, chapterId);
+    const data = await provider.getChapter(novelId, chapterId);
     expect(data).toBeDefined();
     const text = data.paragraphs.join('\n');
     expect(text).contain('お疲れ様、先生');

@@ -3,16 +3,15 @@ import type { KyInstance } from 'ky';
 
 import {
   type Page,
-  type RemoteChapter,
-  type RemoteNovelListItem,
-  type RemoteNovelMetadata,
-  type TocItem,
   type WebNovelAuthor,
+  type WebNovelChapter,
+  type WebNovelListItem,
+  type WebNovelMetadata,
   type WebNovelProvider,
+  type WebNovelTocItem,
   WebNovelType,
 } from './types';
 import {
-  assertEl,
   numExtractor,
   stringToAttentionEnum,
   substringAfterLast,
@@ -46,7 +45,7 @@ export class Alphapolis implements WebNovelProvider {
 
   async getRank(
     _options: Record<string, string>,
-  ): Promise<Page<RemoteNovelListItem>> {
+  ): Promise<Page<WebNovelListItem>> {
     throw new Error('Not implemented');
   }
 
@@ -58,21 +57,29 @@ export class Alphapolis implements WebNovelProvider {
     return `${this.getMetadataUrl(novelId)}/episode/${chapterId}`;
   }
 
-  async getMetadata(novelId: string): Promise<RemoteNovelMetadata | null> {
+  async getMetadata(novelId: string): Promise<WebNovelMetadata | null> {
     const html = await this.client.get(this.getMetadataUrl(novelId)).text();
     const $ = cheerio.load(html);
 
     const $contentInfo = $('#sidebar').first().find('.content-info').first();
-    assertEl($contentInfo, 'doc parse failed');
+    if ($contentInfo.length === 0) {
+      throw new Error('作品信息解析失败');
+    }
 
     const $contentMain = $('#main').first().find('.content-main').first();
-    assertEl($contentMain, 'doc parse failed');
+    if ($contentMain.length === 0) {
+      throw new Error('作品主体解析失败');
+    }
 
     const $info = $contentInfo.find('.content-statuses').first();
-    assertEl($info, 'doc parse failed');
+    if ($info.length === 0) {
+      throw new Error('作品状态解析失败');
+    }
 
     const $table = $contentInfo.find('table.detail').first();
-    assertEl($table, 'doc parse failed');
+    if ($table.length === 0) {
+      throw new Error('作品详情解析失败');
+    }
 
     const row = (label: string) =>
       $table
@@ -125,7 +132,7 @@ export class Alphapolis implements WebNovelProvider {
       .text()
       .trim();
 
-    const toc: TocItem[] = [];
+    const toc: WebNovelTocItem[] = [];
     $('div.episodes')
       .children()
       .each((_, el) => {
@@ -195,7 +202,10 @@ export class Alphapolis implements WebNovelProvider {
     };
   }
 
-  async getChapter(novelId: string, chapterId: string): Promise<RemoteChapter> {
+  async getChapter(
+    novelId: string,
+    chapterId: string,
+  ): Promise<WebNovelChapter> {
     const html = await this.client
       .get(this.getEpisodeUrl(novelId, chapterId))
       .text();
@@ -205,7 +215,9 @@ export class Alphapolis implements WebNovelProvider {
     if ($content.length === 0) {
       $content = $('div.text');
     }
-    assertEl($content, 'doc parse failed');
+    if ($content.length === 0) {
+      throw new Error('章节内容解析失败');
+    }
 
     $content.find('rp, rt').remove();
     $content.find('br').replaceWith('\n');

@@ -1,3 +1,3 @@
-import ky from "ky";
+import ky from 'ky';
 
 export const client = ky.create();

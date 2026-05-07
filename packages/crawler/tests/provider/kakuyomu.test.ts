@@ -1,19 +1,14 @@
 import { describe, expect, test } from 'vitest';
 
 import { Kakuyomu } from '@/provider/kakuyomu';
-import {
-  Page,
-  RemoteNovelListItem,
-  WebNovelType,
-  type RemoteChapter,
-} from '@/provider/types';
+import { WebNovelType } from '@/provider/types';
 import { client } from './utils';
 
 describe('kakuyomu', () => {
   const provider = new Kakuyomu(client);
 
   test('rank', async () => {
-    const data: Page<RemoteNovelListItem> = await provider.getRank({
+    const data = await provider.getRank({
       genre: '综合',
       range: '总计',
       status: '全部',
@@ -44,7 +39,7 @@ describe('kakuyomu', () => {
     const novelId = '16818093075963348153';
     const chapterId = '16818093075963352409';
 
-    const data: RemoteChapter = await provider.getChapter(novelId, chapterId);
+    const data = await provider.getChapter(novelId, chapterId);
     expect(data).toBeDefined();
     const text = data.paragraphs.join('\n');
     expect(text).contain('二次元の世界では');

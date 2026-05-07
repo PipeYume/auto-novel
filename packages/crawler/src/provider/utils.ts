@@ -1,6 +1,7 @@
-import { WebNovelAttention } from './types';
+import { parse } from 'date-fns';
+import { fromZonedTime } from 'date-fns-tz';
 
-import type { Cheerio } from 'cheerio';
+import { WebNovelAttention } from './types';
 
 export const removeSuffix = (suffix: string) => (input: string) =>
   input.endsWith(suffix) ? input.slice(0, -suffix.length) : input;
@@ -49,18 +50,22 @@ export const numExtractor = (text: string): number | null => {
   return Number.isFinite(value) ? value : null;
 };
 
-export function assertValid<T>(
-  data: T | null | undefined | string,
-  msg: string = 'data is null or undefined',
-): asserts data is T {
-  if (data === null || data === undefined) {
-    throw new Error(msg);
+export function parseJapanDateString(
+  pattern: string,
+  dateString: string,
+): Date | undefined {
+  try {
+    const naiveDate = parse(dateString, pattern, new Date());
+    const utcDate = fromZonedTime(naiveDate, 'Asia/Tokyo');
+    if (isNaN(utcDate.getTime())) {
+      return undefined;
+    }
+    return utcDate;
+  } catch (error) {
+    console.error(
+      `日期解析失败: pattern='${pattern}', dateString='${dateString}'`,
+      error,
+    );
+    return undefined;
   }
-}
-
-export function assertEl<T>(
-  data: Cheerio<T>,
-  msg: string = 'doc parse failed',
-) {
-  if (data.length === 0) throw new Error(msg);
 }
