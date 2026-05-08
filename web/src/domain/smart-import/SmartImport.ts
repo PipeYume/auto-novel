@@ -1,10 +1,10 @@
-import type { AmazonNovel, WenkuVolumeDto } from '@/model/WenkuNovel';
-import { parallelExec } from '@/util';
+import ky from 'ky';
 
-import { getProduct } from './ApiGetProduct';
-import { getSerial } from './ApiGetSerial';
-import { search } from './ApiSearch';
-import { extractAsin, prettyCover } from './Common';
+import { Amazon, extractAsin, prettyCover } from '@auto-novel/crawler';
+import type { AmazonNovel, WenkuVolumeDto } from '@/model/WenkuNovel';
+import { ensureCookie } from '@/api/third-party/util';
+import { parallelExec } from '@/util';
+import { lazy } from '@/util';
 import { Translator } from '../translate';
 
 type Logger = (message: string) => void;
@@ -14,6 +14,23 @@ type SmartImportCallback = {
   populateNovel: (novel: AmazonNovel) => void;
   populateVolume: (volume: WenkuVolumeDto) => void;
 };
+
+const getClient = async () => {
+  const addon = window.Addon;
+  if (!addon) return ky;
+
+  const url = 'https://www.amazon.co.jp';
+  const domain = '.amazon.co.jp';
+  const keys = ['session-id', 'ubid-acbjp'];
+
+  await ensureCookie(addon, url, domain, keys);
+
+  return ky.create({
+    fetch: addon.fetch,
+  });
+};
+
+const getAmazon = lazy(async () => new Amazon(await getClient()));
 
 const parseTitle = (title: string) => {
   // 替换全角空格
@@ -124,7 +141,8 @@ const getNovelFromVolumes = async (volumes: WenkuVolumeDto[]) => {
 };
 
 const getNovelByAsin = async (asin: string): Promise<AmazonNovel> => {
-  const product = await getProduct(asin);
+  const amazon = await getAmazon();
+  const product = await amazon.getProduct(asin);
   if (product.type === 'volume') {
     const volume = product.volume;
     const { title, imprint } = parseTitle(volume.title);
@@ -139,7 +157,13 @@ const getNovelByAsin = async (asin: string): Promise<AmazonNovel> => {
     };
   } else if (product.type === 'serial') {
     const { title, total } = product.serial;
-    const serial = await getSerial(asin, total);
+    const serial = await amazon.getSerial(asin, total);
+    serial.volumes = await Promise.all(
+      serial.volumes.map(async (volume) => ({
+        ...volume,
+        asin: await amazon.resolveKindleAsin(volume.asin),
+      })),
+    );
     const novel = await getNovelFromVolumes(serial.volumes);
     if (title !== undefined) {
       novel.title = title;
@@ -155,7 +179,8 @@ const getNovelBySearch = async (
   log: Logger,
 ): Promise<AmazonNovel> => {
   log(`导入小说 开始搜索\n`);
-  const searchItems = (await search(query))
+  const amazon = await getAmazon();
+  const searchItems = (await amazon.search(query))
     .filter(({ title }) => title.includes(query) && checkIsNovelByTitle(title))
     .sort((a, b) => a.title.localeCompare(b.title));
 
@@ -167,7 +192,7 @@ const getNovelBySearch = async (
     serialAsinSet.add(serialAsin);
 
     log(`尝试导入小说系列 ${serialAsin}`);
-    const product = await getProduct(asin);
+    const product = await amazon.getProduct(asin);
     if (
       product.type !== 'volume' ||
       !checkIsNovelByDetail(
@@ -193,7 +218,7 @@ const getNovelBySearch = async (
 };
 
 const getVolume = async (asin: string) => {
-  const product = await getProduct(asin);
+  const product = await (await getAmazon()).getProduct(asin);
   if (product.type !== 'volume') {
     throw new Error(`ASIN不对应小说:${asin}`);
   }

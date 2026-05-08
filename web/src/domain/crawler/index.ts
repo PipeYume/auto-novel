@@ -1,6 +1,6 @@
 import ky from 'ky';
 
-import { Crawler } from '@auto-novel/crawler';
+import { WebNovelCrawler } from '@auto-novel/crawler';
 
 const checkAddon = () => {
   return window.Addon !== undefined;
@@ -9,7 +9,7 @@ const checkAddon = () => {
 const getCrawler = () => {
   if (!window.Addon) return undefined;
   const client = ky.create({ fetch: window.Addon.fetch });
-  return new Crawler(client);
+  return new WebNovelCrawler(client);
 };
 
 const updateWebNovel = async (providerId: string, novelId: string) => {
