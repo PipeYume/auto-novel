@@ -11,8 +11,6 @@ import {
   useWhoamiStore,
   useWorkspaceStore,
 } from '@/stores';
-import { CrawlerService } from '@/domain/crawler';
-import { doAction } from '@/pages/util';
 
 const props = defineProps<{
   providerId: string;
@@ -21,7 +19,6 @@ const props = defineProps<{
   titleZh?: string;
   total: number;
   jp: number;
-  baidu: number;
   youdao: number;
   gpt: number;
   sakura: number;
@@ -32,7 +29,6 @@ const { providerId, novelId, titleJp, titleZh, total } = props;
 
 const emit = defineEmits<{
   'update:jp': [number];
-  'update:baidu': [number];
   'update:youdao': [number];
   'update:gpt': [number];
 }>();
@@ -47,12 +43,24 @@ const { setting } = storeToRefs(settingStore);
 
 const translateOptions = useTemplateRef('translateOptions');
 const translateTask = useTemplateRef('translateTask');
-const startTranslateTask = (translatorId: 'baidu' | 'youdao') =>
+const startTranslateTask = (translatorId: 'youdao') =>
   translateTask?.value?.startTask(
     { type: 'web', providerId, novelId },
     translateOptions.value!.getTranslateTaskParams(),
     { id: translatorId },
   );
+
+const importToWorkspace = async () => {
+  const blob = await ky.get(files.value.jp.url).blob();
+  const file = new File([blob], files.value.jp.filename);
+
+  const repo = await useLocalVolumeStore();
+  await repo
+    .createVolume(file, 'default')
+    .then(() => repo.updateGlossary(file.name, toRaw(props.glossary)))
+    .then(() => message.success('导入成功'))
+    .catch((error) => message.error(`导入失败:${error}`));
+};
 
 const files = computed(() => {
   const title =
@@ -83,33 +91,9 @@ const files = computed(() => {
   };
 });
 
-const updateNovel = () => {
-  if (!CrawlerService.checkAddon()) {
-    message.error('无法更新目录：未检测到Addon');
-    return;
-  }
-  return doAction(
-    CrawlerService.updateWebNovel(providerId, novelId),
-    '更新小说（伪）',
-    message,
-  );
-};
-
-const importToWorkspace = async () => {
-  const blob = await ky.get(files.value.jp.url).blob();
-  const file = new File([blob], files.value.jp.filename);
-
-  const repo = await useLocalVolumeStore();
-  await repo
-    .createVolume(file, 'default')
-    .then(() => repo.updateGlossary(file.name, toRaw(props.glossary)))
-    .then(() => message.success('导入成功'))
-    .catch((error) => message.error(`导入失败:${error}`));
-};
-
 const pressControl = useKeyModifier('Control');
 const submitJob = (id: 'gpt' | 'sakura') => {
-  const { startIndex, endIndex, level, forceMetadata } =
+  const { startIndex, endIndex, level, forceMetadata, useBrowserCrawler } =
     translateOptions.value!.getTranslateTaskParams();
   const taskNumber = translateOptions.value!.getTaskNumber();
 
@@ -128,6 +112,7 @@ const submitJob = (id: 'gpt' | 'sakura') => {
         const task = TranslateTaskDescriptor.web(providerId, novelId, {
           level,
           forceMetadata,
+          useBrowserCrawler,
           startIndex: start,
           endIndex: end,
         });
@@ -138,6 +123,7 @@ const submitJob = (id: 'gpt' | 'sakura') => {
     const task = TranslateTaskDescriptor.web(providerId, novelId, {
       level,
       forceMetadata,
+      useBrowserCrawler,
       startIndex,
       endIndex,
     });
@@ -169,51 +155,11 @@ const submitJob = (id: 'gpt' | 'sakura') => {
 </script>
 
 <template>
-  <n-text v-if="!whoami.isSignedIn">游客无法使用翻译功能，请先登录。</n-text>
-  <n-text v-else-if="setting.enabledTranslator.length === 0">
-    没有翻译器启用。
-  </n-text>
-  <TranslateOptions
-    v-else
-    ref="translateOptions"
-    :gnid="GenericNovelId.web(providerId, novelId)"
-    :glossary="glossary"
-  />
-
-  <n-flex vertical style="margin-top: 16px">
+  <n-flex vertical style="margin-top: 8px">
     <n-text>
-      总计 {{ total }} / 百度 {{ baidu }} / 有道 {{ youdao }} / GPT {{ gpt }} /
-      Sakura {{ sakura }}
+      总计 {{ total }} / 有道 {{ youdao }} / GPT {{ gpt }} / Sakura
+      {{ sakura }}
     </n-text>
-
-    <template v-if="whoami.isSignedIn && setting.enabledTranslator.length > 0">
-      <n-button-group>
-        <c-button
-          v-if="setting.enabledTranslator.includes('baidu')"
-          label="更新百度"
-          :round="false"
-          @action="startTranslateTask('baidu')"
-        />
-        <c-button
-          v-if="setting.enabledTranslator.includes('youdao')"
-          label="更新有道"
-          :round="false"
-          @action="startTranslateTask('youdao')"
-        />
-        <c-button
-          v-if="setting.enabledTranslator.includes('gpt')"
-          label="排队GPT"
-          :round="false"
-          @action="submitJob('gpt')"
-        />
-        <c-button
-          v-if="setting.enabledTranslator.includes('sakura')"
-          label="排队Sakura"
-          :round="false"
-          @action="submitJob('sakura')"
-        />
-      </n-button-group>
-    </template>
 
     <n-button-group>
       <c-button
@@ -232,16 +178,57 @@ const submitJob = (id: 'gpt' | 'sakura') => {
         :download="files.zh.filename"
         target="_blank"
       />
-      <c-button
-        label="导入日文至工作区"
+      <DownloadOptionsButton
         :round="false"
-        @action="importToWorkspace"
+        :show-file-type="true"
+        :show-filename-type="true"
+      />
+    </n-button-group>
+  </n-flex>
+
+  <div style="margin: 28px" />
+
+  <n-text v-if="!whoami.isSignedIn">游客无法使用翻译功能，请先登录。</n-text>
+  <n-text v-else-if="setting.enabledTranslator.length === 0">
+    没有翻译器启用。
+  </n-text>
+  <TranslateOptions
+    v-else
+    ref="translateOptions"
+    :gnid="GenericNovelId.web(providerId, novelId)"
+  />
+
+  <n-flex
+    v-if="whoami.isSignedIn && setting.enabledTranslator.length > 0"
+    style="margin-top: 16px"
+  >
+    <n-button-group>
+      <GlossaryButton
+        :gnid="GenericNovelId.web(providerId, novelId)"
+        :value="glossary"
+        :round="false"
+      />
+      <c-button label="导入工作区" :round="false" @action="importToWorkspace" />
+    </n-button-group>
+
+    <n-button-group>
+      <c-button
+        v-if="setting.enabledTranslator.includes('youdao')"
+        label="更新有道"
+        :round="false"
+        @action="startTranslateTask('youdao')"
       />
       <c-button
-        v-if="whoami.isAdmin"
-        label="更新目录"
+        v-if="setting.enabledTranslator.includes('gpt')"
+        label="排队GPT"
         :round="false"
-        @action="updateNovel()"
+        @action="submitJob('gpt')"
+      />
+      <c-button
+        v-if="setting.enabledTranslator.includes('sakura')"
+        label="排队Sakura"
+        :round="false"
+        @action="submitJob('sakura')"
       />
     </n-button-group>
   </n-flex>
@@ -249,7 +236,6 @@ const submitJob = (id: 'gpt' | 'sakura') => {
   <TranslateTask
     ref="translateTask"
     @update:jp="(zh) => emit('update:jp', zh)"
-    @update:baidu="(zh) => emit('update:baidu', zh)"
     @update:youdao="(zh) => emit('update:youdao', zh)"
     @update:gpt="(zh) => emit('update:gpt', zh)"
     style="margin-top: 20px"

@@ -42,7 +42,6 @@ const translatorConfig = computed(() => {
   if (worker.translatorId === 'gpt') {
     return <TranslatorConfig & { id: 'gpt' }>{
       id: 'gpt',
-      type: worker.type,
       model: worker.model,
       endpoint: worker.endpoint,
       key: worker.key,
@@ -60,11 +59,7 @@ const translatorConfig = computed(() => {
 const endpointPrefix = computed(() => {
   const worker = props.worker;
   if (worker.translatorId === 'gpt') {
-    if (worker.type === 'web') {
-      return `web[${worker.key.slice(-4)}]@`;
-    } else {
-      return `${worker.model}[${worker.key.slice(-4)}]@`;
-    }
+    return `${worker.model}[${worker.key.slice(-4)}]@`;
   } else {
     return `${worker.segLength ?? 500}@`;
   }

@@ -11,7 +11,6 @@ import CTaskCard from './CTaskCard.vue';
 
 const emit = defineEmits<{
   'update:jp': [number];
-  'update:baidu': [number];
   'update:youdao': [number];
   'update:gpt': [number];
   'update:sakura': [number];
@@ -53,7 +52,6 @@ const startTask = async (
 
   const buildLabel = () => {
     const idToLaber = {
-      baidu: '百度',
       youdao: '有道',
       gpt: 'GPT',
       sakura: 'Sakura',
@@ -69,6 +67,9 @@ const startTask = async (
     }
     if (params.forceMetadata) {
       suffixParts.push('重翻目录');
+    }
+    if (desc.type === 'web' && params.useBrowserCrawler) {
+      suffixParts.push('浏览器爬虫');
     }
     if (suffixParts.length > 0) {
       label = label + ` [${suffixParts.join('/')}]`;
@@ -103,9 +104,7 @@ const startTask = async (
       onChapterSuccess: ({ jp, zh }) => {
         if (jp !== undefined) emit('update:jp', jp);
         if (zh !== undefined) {
-          if (translatorDesc.id === 'baidu') {
-            emit('update:baidu', zh);
-          } else if (translatorDesc.id === 'youdao') {
+          if (translatorDesc.id === 'youdao') {
             emit('update:youdao', zh);
           } else if (translatorDesc.id === 'gpt') {
             emit('update:gpt', zh);

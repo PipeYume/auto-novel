@@ -3,7 +3,6 @@ import { isEqual } from 'lodash-es';
 import type { Glossary } from '@/model/Glossary';
 import type { TranslatorId } from '@/model/Translator';
 
-import { BaiduTranslator } from './TranslatorBaidu';
 import { OpenAiTranslator } from './TranslatorOpenAi';
 import { SakuraTranslator } from './TranslatorSakura';
 import { YoudaoTranslator } from './TranslatorYoudao';
@@ -12,7 +11,6 @@ import { createSegIndexedDbCache } from './Common';
 import { RegexUtil } from '@/util';
 
 export type TranslatorConfig =
-  | { id: 'baidu' }
   | { id: 'youdao' }
   | ({ id: 'gpt' } & OpenAiTranslator.Config)
   | ({ id: 'sakura' } & SakuraTranslator.Config);
@@ -185,9 +183,7 @@ export namespace Translator {
     log: Logger,
     config: TranslatorConfig,
   ): Promise<SegmentTranslator> => {
-    if (config.id === 'baidu') {
-      return BaiduTranslator.create(log);
-    } else if (config.id === 'youdao') {
+    if (config.id === 'youdao') {
       return YoudaoTranslator.create(log);
     } else if (config.id === 'gpt') {
       return OpenAiTranslator.create(log, config);

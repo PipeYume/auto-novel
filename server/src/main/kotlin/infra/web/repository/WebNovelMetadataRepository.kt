@@ -212,27 +212,46 @@ class WebNovelMetadataRepository(
         toc: List<WebNovelTocItem>,
     ) {
         val now = Clock.System.now()
+        val local = webNovelMetadataCollection
+            .find(byId(providerId, novelId))
+            .firstOrNull()
+            ?: return
+        val mergedToc = mergeUpdatedToc(
+            remoteToc = toc,
+            localToc = local.toc,
+        )
+        val updates = mutableListOf(
+            set(WebNovel::titleJp.field(), titleJp),
+            set(WebNovel::authors.field(), authors),
+            set(WebNovel::type.field(), type),
+            set(WebNovel::attentions.field(), attentions),
+            set(WebNovel::keywords.field(), keywords),
+            set(WebNovel::points.field(), points),
+            set(WebNovel::totalCharacters.field(), totalCharacters),
+            set(WebNovel::introductionJp.field(), introductionJp),
+            set(WebNovel::toc.field(), mergedToc.toc),
+            set(WebNovel::pauseUpdate.field(), true),
+            set(WebNovel::syncAt.field(), now),
+        )
+        if (mergedToc.hasChanged) {
+            updates.add(set(WebNovel::changeAt.field(), now))
+            updates.add(set(WebNovel::updateAt.field(), now))
+        }
         webNovelMetadataCollection
             .findOneAndUpdate(
                 byId(providerId, novelId),
-                combine(
-                    set(WebNovel::titleJp.field(), titleJp),
-                    set(WebNovel::authors.field(), authors),
-                    set(WebNovel::type.field(), type),
-                    set(WebNovel::attentions.field(), attentions),
-                    set(WebNovel::keywords.field(), keywords),
-                    set(WebNovel::points.field(), points),
-                    set(WebNovel::totalCharacters.field(), totalCharacters),
-                    set(WebNovel::introductionJp.field(), introductionJp),
-                    set(WebNovel::toc.field(), toc),
-                    set(WebNovel::pauseUpdate.field(), true),
-                    set(WebNovel::syncAt.field(), now),
-                    set(WebNovel::changeAt.field(), now),
-                    set(WebNovel::updateAt.field(), now),
-                ),
+                combine(updates),
                 FindOneAndUpdateOptions().returnDocument(ReturnDocument.AFTER),
             )
-            ?.also { es.syncNovel(it) }
+            ?.also {
+                es.syncNovel(it)
+                if (mergedToc.hasChanged) {
+                    userFavoredWebCollection.updateMany(
+                        eq(WebNovelFavoriteDbModel::novelId.field(), it.id),
+                        set(WebNovelFavoriteDbModel::updateAt.field(), it.updateAt),
+                    )
+                }
+            }
     }
 
     suspend fun getNovelAndSave(
@@ -474,6 +493,11 @@ data class MergedResult(
     val reviewReason: String?,
 )
 
+private data class UpdatedTocMergeResult(
+    val toc: List<WebNovelTocItem>,
+    val hasChanged: Boolean,
+)
+
 fun mergeToc(
     remoteToc: List<WebNovelTocItem>,
     localToc: List<WebNovelTocItem>,
@@ -545,4 +569,42 @@ private fun simpleMergeToc(
             itemNew.copy(titleZh = itemOld.titleZh)
         }
     }
+}
+
+private fun mergeUpdatedToc(
+    remoteToc: List<WebNovelTocItem>,
+    localToc: List<WebNovelTocItem>,
+): UpdatedTocMergeResult {
+    val localByChapterId = localToc
+        .mapNotNull { item -> item.chapterId?.let { it to item } }
+        .toMap()
+    val localByTitle = localToc.associateBy { it.titleJp }
+
+    val mergedToc = remoteToc.map { remoteItem ->
+        val localItem = remoteItem.chapterId
+            ?.let(localByChapterId::get)
+            ?: localByTitle[remoteItem.titleJp]
+        if (localItem != null && localItem.titleJp == remoteItem.titleJp) {
+            remoteItem.copy(titleZh = localItem.titleZh)
+        } else {
+            remoteItem
+        }
+    }
+
+    val remoteChapterMap = remoteToc
+        .mapNotNull { item -> item.chapterId?.let { it to item.createAt } }
+        .toMap()
+    val localChapterMap = localToc
+        .mapNotNull { item -> item.chapterId?.let { it to item.createAt } }
+        .toMap()
+    val hasNewChapter = remoteChapterMap.keys.any { it !in localChapterMap }
+    val hasDeletedChapter = localChapterMap.keys.any { it !in remoteChapterMap }
+    val hasExistingChapterUpdated = localChapterMap.any { (chapterId, createAt) ->
+        remoteChapterMap[chapterId] != createAt
+    }
+
+    return UpdatedTocMergeResult(
+        toc = mergedToc,
+        hasChanged = hasNewChapter || hasDeletedChapter || hasExistingChapterUpdated,
+    )
 }

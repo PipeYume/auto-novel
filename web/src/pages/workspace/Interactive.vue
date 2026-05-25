@@ -12,7 +12,6 @@ const textZh = ref('');
 
 const translatorId = ref<TranslatorId>('sakura');
 const translationOptions: { label: string; value: TranslatorId }[] = [
-  { label: '百度', value: 'baidu' },
   { label: '有道', value: 'youdao' },
   { label: 'GPT', value: 'gpt' },
   { label: 'Sakura', value: 'sakura' },
@@ -57,7 +56,6 @@ const translate = async () => {
     selectedWorker = worker;
     config = {
       id,
-      type: worker.type,
       model: worker.model,
       endpoint: worker.endpoint,
       key: worker.key,

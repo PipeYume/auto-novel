@@ -1,6 +1,9 @@
+import { HTTPError } from 'ky';
 import { useQuery, useQueryCache } from '@pinia/colada';
 
 import { FavoredApi, ReadHistoryApi, WebNovelApi } from '@/api';
+import type { WebNovelMetadata } from '@/external';
+import { WebNovelCrawlerApi } from '@/external';
 import { withOnSuccess } from './cache';
 
 const ItemKey = 'web-novel';
@@ -8,6 +11,40 @@ const ListKey = 'web-novel-list';
 const ListRankKey = 'web-novel-list-rank';
 const ListHistoryKey = 'web-novel-list-history';
 const ListFavoredKey = 'web-novel-list-favored';
+
+const toMutationBody = (metadata: WebNovelMetadata) => ({
+  title: metadata.title,
+  authors: metadata.authors.map((author) => ({
+    name: author.name,
+    link: author.link ?? null,
+  })),
+  type: metadata.type,
+  attentions: metadata.attentions,
+  keywords: metadata.keywords,
+  points: metadata.points ?? null,
+  totalCharacters: metadata.totalCharacters,
+  introduction: metadata.introduction,
+  toc: metadata.toc.map((item) => ({
+    title: item.title,
+    chapterId: item.chapterId ?? null,
+    createAt: item.createAt ?? null,
+  })),
+});
+
+const getOrCreateWebNovel = async (providerId: string, novelId: string) => {
+  try {
+    return await WebNovelApi.getNovel(providerId, novelId);
+  } catch (error) {
+    if (!(error instanceof HTTPError) || error.response.status !== 500) {
+      throw error;
+    }
+  }
+
+  const metadata = await WebNovelCrawlerApi.getMetadata(providerId, novelId);
+  await WebNovelApi.createNovel(providerId, novelId, toMutationBody(metadata));
+
+  return WebNovelApi.getNovel(providerId, novelId);
+};
 
 const useWebNovel = (
   providerId: string,
@@ -17,7 +54,7 @@ const useWebNovel = (
   useQuery({
     enabled,
     key: [ItemKey, providerId, novelId],
-    query: () => WebNovelApi.getNovel(providerId, novelId),
+    query: () => getOrCreateWebNovel(providerId, novelId),
   });
 
 const useWebNovelList = (
@@ -94,8 +131,18 @@ export const WebNovelRepo = {
   useWebNovelHistoryList,
   useWebNovelFavoredList,
 
+  createNovel: WebNovelApi.createNovel,
+  createChapter: WebNovelApi.createChapter,
   updateNovel: withOnSuccess(
     WebNovelApi.updateNovel,
+    (_, providerId, novelId) =>
+      useQueryCache().invalidateQueries({
+        key: [ItemKey, providerId, novelId],
+        exact: true,
+      }),
+  ),
+  updateChapter: withOnSuccess(
+    WebNovelApi.updateChapter,
     (_, providerId, novelId) =>
       useQueryCache().invalidateQueries({
         key: [ItemKey, providerId, novelId],

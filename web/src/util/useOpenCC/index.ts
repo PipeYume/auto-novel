@@ -17,14 +17,8 @@ export async function useOpenCC(locale: Locale) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const opencc: any = await import('opencc-js');
     const ccLocale = opencc.Locale;
-    const customDict = [
-      ['托', '託'],
-      ['娘', '孃'],
-    ];
     return {
-      toView: opencc.ConverterFactory(ccLocale.from.tw, ccLocale.to.cn, [
-        customDict,
-      ]),
+      toView: opencc.ConverterFactory(ccLocale.from.tw, ccLocale.to.cn),
       toData: (text: string) => text,
     };
   } else if (locale === 'zh-tw') {

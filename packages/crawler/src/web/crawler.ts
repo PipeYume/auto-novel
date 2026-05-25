@@ -1,4 +1,4 @@
-import type { KyInstance } from 'ky';
+import ky from 'ky';
 
 import type {
   Page,
@@ -7,6 +7,7 @@ import type {
   WebNovelMetadata,
   WebNovelProvider,
 } from './types';
+import { CrawlerInputError } from '@/errors';
 
 import { Alphapolis } from './alphapolis';
 import { Hameln } from './hameln';
@@ -15,7 +16,7 @@ import { Novelup } from './novelup';
 import { Pixiv } from './pixiv';
 import { Syosetu } from './syosetu';
 
-type ProviderInitFn = (_: KyInstance) => WebNovelProvider;
+type ProviderInitFn = () => WebNovelProvider;
 
 type ProviderId =
   | 'alphapolis'
@@ -25,26 +26,25 @@ type ProviderId =
   | 'pixiv'
   | 'syosetu';
 
-type ProviderRegistry = Record<ProviderId, ProviderInitFn>;
+type ProviderRegistry = Partial<Record<ProviderId, ProviderInitFn>>;
 
 export class WebNovelCrawler {
-  readonly client: KyInstance;
-
   private readonly providers = new Map<string, ProviderInitFn>();
   private readonly providerInstances = new Map<string, WebNovelProvider>();
 
-  constructor(
-    client: KyInstance,
-    initialProviders: ProviderRegistry = {
-      alphapolis: (ky) => new Alphapolis(ky),
-      hameln: (ky) => new Hameln(ky),
-      pixiv: (ky) => new Pixiv(ky),
-      novelup: (ky) => new Novelup(ky),
-      kakuyomu: (ky) => new Kakuyomu(ky),
-      syosetu: (ky) => new Syosetu(ky, { concurrency: 2 }),
-    },
-  ) {
-    this.client = client;
+  constructor(initialProviders: ProviderRegistry = {}) {
+    const defaultProviders: Record<ProviderId, ProviderInitFn> = {
+      alphapolis: () => new Alphapolis(ky),
+      hameln: () => new Hameln(ky),
+      pixiv: () => new Pixiv(ky),
+      novelup: () => new Novelup(ky),
+      kakuyomu: () => new Kakuyomu(ky),
+      syosetu: () => new Syosetu(ky, { concurrency: 2 }),
+    };
+
+    for (const [providerId, provider] of Object.entries(defaultProviders)) {
+      this.providers.set(providerId, provider);
+    }
     for (const [providerId, provider] of Object.entries(initialProviders)) {
       this.providers.set(providerId, provider);
     }
@@ -58,10 +58,10 @@ export class WebNovelCrawler {
 
     const providerInit = this.providers.get(providerId);
     if (!providerInit) {
-      throw new Error(`Unknown providerId: ${providerId}`);
+      throw new CrawlerInputError(`未知的 providerId：${providerId}`);
     }
 
-    const provider = providerInit(this.client);
+    const provider = providerInit();
     this.providerInstances.set(providerId, provider);
     return provider;
   }
@@ -69,14 +69,14 @@ export class WebNovelCrawler {
   async getRank(
     providerId: string,
     options: Record<string, string>,
-  ): Promise<Page<WebNovelListItem> | null | undefined> {
+  ): Promise<Page<WebNovelListItem>> {
     return this.getProvider(providerId).getRank(options);
   }
 
   async getMetadata(
     providerId: string,
     novelId: string,
-  ): Promise<WebNovelMetadata | null | undefined> {
+  ): Promise<WebNovelMetadata> {
     return this.getProvider(providerId).getMetadata(novelId);
   }
 
@@ -84,7 +84,7 @@ export class WebNovelCrawler {
     providerId: string,
     novelId: string,
     chapterId: string,
-  ): Promise<WebNovelChapter | null | undefined> {
+  ): Promise<WebNovelChapter> {
     return this.getProvider(providerId).getChapter(novelId, chapterId);
   }
 }

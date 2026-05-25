@@ -5,12 +5,14 @@ RUN corepack enable
 WORKDIR /app
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY packages/crawler/package.json ./packages/crawler/
+COPY packages/translator/package.json ./packages/translator/
 COPY web/package.json ./web/
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile
 
 FROM deps AS builder
 WORKDIR /app
 COPY packages/crawler ./packages/crawler
+COPY packages/translator ./packages/translator
 COPY web ./web
 RUN pnpm run build
 

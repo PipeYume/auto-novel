@@ -67,7 +67,7 @@ const customRequest = ({
       </template>
       支持拖拽上传Epub/Txt/Srt文件
       <br />
-      百度/有道/GPT支持韩语/英语小说
+      有道/GPT支持韩语/英语小说
     </n-tooltip>
   </n-upload>
   <DropZone

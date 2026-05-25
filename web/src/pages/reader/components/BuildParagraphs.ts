@@ -55,8 +55,6 @@ export const buildParagraphs = (
     ): [string, string[] | undefined] => {
       if (t === 'youdao') {
         return ['有道', chapter.youdaoParagraphs];
-      } else if (t === 'baidu') {
-        return ['百度', chapter.baiduParagraphs];
       } else if (t === 'gpt') {
         return ['GPT', chapter.gptParagraphs];
       } else {

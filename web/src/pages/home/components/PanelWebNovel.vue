@@ -22,9 +22,9 @@ defineProps<{
         </c-a>
         <div class="text-2line">{{ item.titleZh }}</div>
         <n-text depth="3">
-          {{ item.type }} / 总计 {{ item.total }} / 百度 {{ item.baidu }}
+          {{ item.type }} / 总计 {{ item.total }} / 有道 {{ item.youdao }}
           <br />
-          有道 {{ item.youdao }} / GPT {{ item.gpt }} / Sakura {{ item.sakura }}
+          GPT {{ item.gpt }} / Sakura {{ item.sakura }}
         </n-text>
       </n-grid-item>
     </n-grid>

@@ -36,10 +36,32 @@ export interface Setting {
   searchLocaleAware: boolean;
 }
 
+const defaultEnabledTranslators = [
+  'sakura',
+  'gpt',
+  'youdao',
+] satisfies TranslatorId[];
+const defaultTranslationPriority = [
+  'sakura',
+  'gpt',
+  'youdao',
+] satisfies TranslatorId[];
+type LegacyTranslatorId = TranslatorId | 'baidu';
+
+const sanitizeTranslators = (
+  translators: LegacyTranslatorId[] | undefined,
+  fallback: TranslatorId[],
+) => {
+  const filtered = (translators ?? []).filter(
+    (id): id is TranslatorId => id !== 'baidu',
+  );
+  return filtered.length === 0 ? fallback.slice() : filtered;
+};
+
 export namespace Setting {
   export const defaultValue: Setting = {
     theme: 'system',
-    enabledTranslator: ['baidu', 'youdao', 'gpt', 'sakura'],
+    enabledTranslator: defaultEnabledTranslators.slice(),
     tocSortReverse: false,
     //
     tocCollapseInNarrowScreen: true,
@@ -57,7 +79,7 @@ export namespace Setting {
     downloadFormat: {
       mode: 'zh-jp',
       translationsMode: 'priority',
-      translations: ['sakura', 'gpt', 'youdao', 'baidu'],
+      translations: defaultTranslationPriority.slice(),
       type: 'epub',
     },
     workspaceSound: false,
@@ -78,9 +100,10 @@ export namespace Setting {
       }
       delete setting.isDark;
     }
-    if (setting.enabledTranslator === undefined) {
-      setting.enabledTranslator = ['baidu', 'youdao', 'gpt', 'sakura'];
-    }
+    setting.enabledTranslator = sanitizeTranslators(
+      setting.enabledTranslator,
+      defaultEnabledTranslators,
+    );
     if ((setting.downloadFormat.mode as string) === 'mix') {
       setting.downloadFormat.mode = 'zh-jp';
     } else if ((setting.downloadFormat.mode as string) === 'mix-reverse') {
@@ -88,6 +111,10 @@ export namespace Setting {
     } else if ((setting.downloadFormat.mode as string) === 'jp') {
       setting.downloadFormat.mode = 'zh';
     }
+    setting.downloadFormat.translations = sanitizeTranslators(
+      setting.downloadFormat.translations,
+      defaultTranslationPriority,
+    );
     // 2024-03-05
     if (setting.workspaceSound === undefined) {
       setting.workspaceSound = false;
@@ -162,7 +189,7 @@ export namespace ReaderSetting {
   export const defaultValue: ReaderSetting = {
     mode: 'zh-jp',
     translationsMode: 'priority',
-    translations: ['sakura', 'gpt', 'youdao', 'baidu'],
+    translations: defaultTranslationPriority.slice(),
     clickArea: 'default',
     speakLanguages: ['jp'],
     pageTurnMode: 'page',
@@ -217,6 +244,10 @@ export namespace ReaderSetting {
       }
       delete setting.trimLeadingSpaces;
     }
+    setting.translations = sanitizeTranslators(
+      setting.translations,
+      defaultTranslationPriority,
+    );
   };
 
   export const modeOptions = [

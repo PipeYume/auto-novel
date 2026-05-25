@@ -97,7 +97,7 @@ const showSakuraSelectModal = ref(false);
 const selectedSakuraWorkerId = ref(sakuraWorkspace.value.workers[0]?.id);
 
 const katakanaTranslations = ref<{ [key: string]: string }>({});
-const translateKatakanas = async (id: 'baidu' | 'youdao' | 'sakura') => {
+const translateKatakanas = async (id: 'youdao' | 'sakura') => {
   const jpWords = [...katakanas.value.keys()];
   let config: TranslatorConfig;
   if (id === 'sakura') {
@@ -160,11 +160,6 @@ const translateKatakanas = async (id: 'baidu' | 'youdao' | 'sakura') => {
             label="复制术语表"
             :round="false"
             @action="copyTranslationJson()"
-          />
-          <c-button
-            label="百度翻译"
-            :round="false"
-            @action="translateKatakanas('baidu')"
           />
           <c-button
             label="有道翻译"

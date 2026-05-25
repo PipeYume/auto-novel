@@ -13,7 +13,6 @@ export interface ReaderChapter {
   prevId?: string;
   nextId?: string;
   paragraphs: string[];
-  baiduParagraphs?: string[];
   youdaoParagraphs?: string[];
   gptParagraphs?: string[];
   sakuraParagraphs?: string[];
@@ -104,7 +103,6 @@ const getChapter = async (
       prevId: volume.toc[currIndex - 1]?.chapterId,
       nextId: volume.toc[currIndex + 1]?.chapterId,
       paragraphs: chapter.paragraphs,
-      baiduParagraphs: chapter.baidu?.paragraphs,
       youdaoParagraphs: chapter.youdao?.paragraphs,
       gptParagraphs: chapter.gpt?.paragraphs,
       sakuraParagraphs: chapter.sakura?.paragraphs,

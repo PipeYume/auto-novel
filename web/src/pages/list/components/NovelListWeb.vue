@@ -129,8 +129,8 @@ defineExpose({
 
         <n-text v-if="item.total" depth="3">
           {{ item.type ? item.type + ' / ' : '' }}
-          总计 {{ item.total }} / 百度 {{ item.baidu }} / 有道
-          {{ item.youdao }} / GPT {{ item.gpt }} / Sakura {{ item.sakura }} /
+          总计 {{ item.total }} / 有道 {{ item.youdao }} / GPT {{ item.gpt }} /
+          Sakura {{ item.sakura }} /
         </n-text>
 
         <n-text depth="3">

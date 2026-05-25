@@ -13,7 +13,6 @@ export interface WebNovelOutlineDto {
   //
   total: number;
   jp: number;
-  baidu: number;
   youdao: number;
   gpt: number;
   sakura: number;
@@ -46,7 +45,6 @@ export interface WebNovelDto {
   favored?: string;
   lastReadChapterId?: string;
   jp: number;
-  baidu: number;
   youdao: number;
   gpt: number;
   sakura: number;
@@ -60,7 +58,6 @@ export interface WebNovelChapterDto {
   prevId?: string;
   nextId?: string;
   paragraphs: string[];
-  baiduParagraphs?: string[];
   youdaoParagraphs?: string[];
   gptParagraphs?: string[];
   sakuraParagraphs?: string[];

@@ -4,13 +4,13 @@ import { createReusableTemplate, onKeyDown } from '@vueuse/core';
 import { ReadHistoryApi } from '@/api';
 import { GenericNovelId } from '@/model/Common';
 import type { TranslatorId } from '@/model/Translator';
-import { checkIsMobile } from '@/pages/util';
 import { ReadPositionRepo } from '@/repos';
 import {
   useLocalVolumeStore,
   useReaderSettingStore,
   useWhoamiStore,
 } from '@/stores';
+import { checkIsMobile } from '@/util';
 import type { Result } from '@/util/result';
 import type { ReaderChapter } from './ReaderStore';
 import { useReaderStore } from './ReaderStore';
@@ -230,7 +230,7 @@ onKeyDown(['ArrowRight'], (e) => {
   }
 });
 
-onKeyDown(['1', '2', '3', '4'], (e) => {
+onKeyDown(['1', '2', '3'], (e) => {
   if (e.altKey || e.ctrlKey || e.shiftKey || e.metaKey) {
     return;
   }
@@ -238,7 +238,7 @@ onKeyDown(['1', '2', '3', '4'], (e) => {
     return;
   }
   const setting = readerSetting.value;
-  const translatorIds = <TranslatorId[]>['baidu', 'youdao', 'gpt', 'sakura'];
+  const translatorIds = <TranslatorId[]>['youdao', 'gpt', 'sakura'];
   const translatorId = translatorIds[parseInt(e.key, 10) - 1];
   if (setting.translationsMode === 'parallel') {
     if (setting.translations.includes(translatorId)) {

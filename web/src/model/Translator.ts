@@ -1,13 +1,16 @@
 import type { Glossary } from './Glossary';
 
-export type TranslatorId = 'sakura' | 'baidu' | 'youdao' | 'gpt';
+export type TranslatorId = 'sakura' | 'youdao' | 'gpt';
 
 export interface GptWorker {
   id: string;
   endpoint: string;
-  type: 'web' | 'api';
   model: string;
   key: string;
+}
+
+export interface GptPipelineWorker extends GptWorker {
+  concurrency: number;
 }
 
 export interface SakuraWorker {
@@ -63,6 +66,7 @@ export type TranslateTaskDesc =
 export type TranslateTaskParams = {
   level: 'normal' | 'expire' | 'all' | 'sync'; // 翻译等级
   forceMetadata: boolean; // 强制重翻元数据
+  useBrowserCrawler: boolean; // 是否启用浏览器爬虫
   startIndex: number;
   endIndex: number;
 };
@@ -80,12 +84,14 @@ export namespace TranslateTaskDescriptor {
   const buildTaskQueryString = ({
     level,
     forceMetadata,
+    useBrowserCrawler,
     startIndex,
     endIndex,
   }: TranslateTaskParams) => {
     const searchParamsInit: { [key: string]: string } = {
       level,
       forceMetadata: forceMetadata.toString(),
+      useBrowserCrawler: useBrowserCrawler.toString(),
       startIndex: startIndex.toString(),
       endIndex: endIndex.toString(),
     };
@@ -149,6 +155,7 @@ export namespace TranslateTaskDescriptor {
     const params: TranslateTaskParams = {
       level: query.get('level') as 'normal' | 'expire' | 'all' | 'sync',
       forceMetadata: queryBoolean('forceMetadata'),
+      useBrowserCrawler: queryBoolean('useBrowserCrawler'),
       startIndex: queryInt('startIndex', 0),
       endIndex: queryInt('endIndex', 65535),
     };

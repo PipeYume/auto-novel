@@ -2,7 +2,6 @@ import { HTTPError, TimeoutError } from 'ky';
 
 export * from './auth';
 export * from './novel';
-export * from './third-party';
 
 export const formatError = async (error: unknown) => {
   if (error instanceof HTTPError) {
@@ -17,6 +16,8 @@ export const formatError = async (error: unknown) => {
     return msg;
   } else if (error instanceof TimeoutError) {
     return '请求超时';
+  } else if (error instanceof Error) {
+    return error.message || error.name || '未知错误';
   } else {
     return `${error}`;
   }

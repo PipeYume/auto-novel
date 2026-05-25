@@ -102,7 +102,6 @@ const submit = async () => {
   const { id, model, endpoint, key } = formValue.value;
   const worker = {
     id: id.trim(),
-    type: 'api' as const,
     model: model.trim(),
     endpoint: endpoint.trim(),
     key: key.trim(),

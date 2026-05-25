@@ -387,9 +387,11 @@ private val disgustingFascistNovelList = mapOf(
         "n5149kv",
         "n3756im",
         "n4899kw",
+        "n3603jk",
     ),
     Kakuyomu.id to listOf(
         "16816927860373250234",
+        "16816927861512481543",
         "16817330660019717771",
         "1177354054901629921",
         "16818093082836701336",
@@ -593,23 +595,38 @@ class WebNovelApi(
         novelId: String,
         body: WebNovelUpdateBody,
     ) {
-        user.requireAdmin() // temp admin only
         user.requireNovelAccess()
         validateId(providerId, novelId)
 
         val novel = metadataRepo.get(providerId, novelId)
             ?: throwNovelNotFound()
 
+        val newChapterIds = body.toc.mapNotNullTo(HashSet(body.toc.size)) {
+            it.chapterId
+        }
+
         val noChapterDeleted = novel
             .toc
             .mapNotNull { it.chapterId }
-            .all { oldChapterId ->
-                body.toc.any { newItem ->
-                    newItem.chapterId == oldChapterId
-                }
-            }
+            .all { oldChapterId -> oldChapterId in newChapterIds }
         if (!noChapterDeleted) {
             user.requireAdmin()
+        }
+
+        // Merge toc with the old one to preserve translation.
+        val oldTitleZhAcc = buildMap<String, String?>(novel.toc.size) {
+            novel.toc.forEach { oldItem ->
+                this[oldItem.titleJp] = oldItem.titleZh
+            }
+        }
+        val mergedToc = body.toc.map { newItem ->
+            val titleZh = oldTitleZhAcc[newItem.title]
+            WebNovelTocItem(
+                titleJp = newItem.title,
+                titleZh = titleZh,
+                chapterId = newItem.chapterId,
+                createAt = newItem.createAt,
+            )
         }
 
         metadataRepo.update(
@@ -623,7 +640,7 @@ class WebNovelApi(
             points = body.points,
             totalCharacters = body.totalCharacters,
             introductionJp = body.introduction,
-            toc = body.toc.map { WebNovelTocItem(it.title, null, it.chapterId, it.createAt) },
+            toc = mergedToc,
         )
         oplogRepo.create(
             providerId = providerId,
@@ -639,7 +656,6 @@ class WebNovelApi(
         novelId: String,
         body: WebNovelUpdateBody,
     ) {
-        user.requireAdmin() // temp admin only
         user.requireNovelAccess()
         validateId(providerId, novelId)
 
@@ -721,7 +737,6 @@ class WebNovelApi(
         chapterId: String,
         paragraphs: List<String>,
     ) {
-        user.requireAdmin() // temp admin only
         user.requireNovelAccess()
         validateId(providerId, novelId)
 
@@ -749,7 +764,6 @@ class WebNovelApi(
         chapterId: String,
         paragraphs: List<String>,
     ) {
-        user.requireAdmin() // temp admin only
         user.requireNovelAccess()
         validateId(providerId, novelId)
 

@@ -52,7 +52,6 @@ const { expandedNames, hasSeparators, isAnyExpanded, toggleAll, tocSections } =
       :title-zh="novel.titleZh"
       :total="novel.toc.filter((it: WebNovelTocItemDto) => it.chapterId).length"
       v-model:jp="novel.jp"
-      v-model:baidu="novel.baidu"
       v-model:youdao="novel.youdao"
       v-model:gpt="novel.gpt"
       :sakura="novel.sakura"

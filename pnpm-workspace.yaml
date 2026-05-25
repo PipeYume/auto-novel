@@ -1,4 +1,9 @@
 packages:
-  - "web"
-  - "crawler"
-  - "packages/*"
+  - 'web'
+  - 'daemon'
+  - 'packages/*'
+
+allowBuilds:
+  core-js: true
+  esbuild: true
+  vue-demi: true

@@ -55,6 +55,7 @@ const selectedFavoredId = ref(props.favored ?? 'default');
     <c-button
       v-if="favored && favoredTitle"
       label="已收藏"
+      :round="false"
       :icon="FavoriteOutlined"
       require-login
       @action="unfavoriteNovel"
@@ -62,6 +63,7 @@ const selectedFavoredId = ref(props.favored ?? 'default');
     <c-button
       v-else
       label="收藏"
+      :round="false"
       :icon="FavoriteBorderOutlined"
       require-login
       @action="favoriteNovel(favoreds[0].id)"
@@ -71,6 +73,7 @@ const selectedFavoredId = ref(props.favored ?? 'default');
   <template v-else>
     <c-button
       :label="favored && favoredTitle ? '已收藏:' + favoredTitle : '收藏'"
+      :round="false"
       :icon="favored ? FavoriteOutlined : FavoriteBorderOutlined"
       require-login
       @action="showFavoredModal = true"

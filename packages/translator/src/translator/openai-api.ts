@@ -2,7 +2,13 @@
 import type { Options } from 'ky';
 import ky, { HTTPError } from 'ky';
 
-import { parseEventStream, safeJson } from '@/utils';
+const safeJson = <T extends object>(text: string) => {
+  try {
+    return JSON.parse(text) as T;
+  } catch (err) {
+    return undefined;
+  }
+};
 
 export const createOpenAiApi = (endpoint: string, key: string) => {
   const endpointUrl = new URL(endpoint);
@@ -24,15 +30,6 @@ export const createOpenAiApi = (endpoint: string, key: string) => {
   const listModels = (options?: Options): Promise<ModelsPage> =>
     client.get('models', options).json<ModelsPage>();
 
-  const createChatCompletionsStream = (
-    json: ChatCompletion.Params & { stream: true },
-    options?: Options,
-  ): Promise<Generator<ChatCompletionChunk>> =>
-    client
-      .post('chat/completions', { json, ...options })
-      .text()
-      .then(parseEventStream<ChatCompletionChunk>);
-
   const createChatCompletions = (
     json: ChatCompletion.Params & { stream?: false },
     options?: Options,
@@ -43,7 +40,6 @@ export const createOpenAiApi = (endpoint: string, key: string) => {
 
   return {
     listModels,
-    createChatCompletionsStream,
     createChatCompletions,
   };
 };
@@ -59,22 +55,6 @@ interface Model {
   created: number;
   owned_by: string;
   meta: unknown;
-}
-
-interface ChatCompletionChunk {
-  id: string;
-  choices: Array<{
-    delta: {
-      content?: string | null;
-    };
-    finish_reason:
-      | 'stop'
-      | 'length'
-      | 'function_call'
-      | 'content_filter'
-      | null;
-    index: number;
-  }>;
 }
 
 interface ChatCompletion {

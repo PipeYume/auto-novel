@@ -1,5 +1,6 @@
 import type {
   GptWorker,
+  GptPipelineWorker,
   SakuraWorker,
   TranslateJobRecord,
 } from '@/model/Translator';
@@ -117,24 +118,14 @@ const createWorkspaceStore = <W extends GptWorker | SakuraWorker>(
 
 const createGptWorkspaceStore = () =>
   createWorkspaceStore<GptWorker>(LSKey.WorkspaceGpt, [], (workspace) => {
-    // 2024-3-8
-    workspace.value.workers.forEach((it: GptWorker) => {
-      if (it.endpoint.length === 0) {
-        if (it.type === 'web') {
-          it.endpoint = 'https://chat.openai.com/backend-api';
-        } else {
-          it.endpoint = 'https://api.openai.com';
-        }
-      }
-      if (it.type === 'web') {
-        it.model = 'text-davinci-002-render-sha';
-      } else {
-        if (it.model === undefined || it.model === 'gpt-3.5') {
-          it.model = 'gpt-3.5-turbo';
-        }
-      }
+    // 2026-5-9
+    workspace.value.workers = workspace.value.workers.filter((it) => {
+      return !('type' in it && it.type === 'web');
     });
   });
+
+const createGptPipelineWorkspaceStore = () =>
+  createWorkspaceStore<GptPipelineWorker>(LSKey.WorkspaceGptPipeline, []);
 
 const createSakuraWorkspaceStore = () =>
   createWorkspaceStore<SakuraWorker>(
@@ -171,11 +162,16 @@ const createSakuraWorkspaceStore = () =>
   );
 
 export const useGptWorkspaceStore = lazy(createGptWorkspaceStore);
+export const useGptPipelineWorkspaceStore = lazy(
+  createGptPipelineWorkspaceStore,
+);
 export const useSakuraWorkspaceStore = lazy(createSakuraWorkspaceStore);
 
-export function useWorkspaceStore(type: 'gpt' | 'sakura') {
+export function useWorkspaceStore(type: 'gpt' | 'sakura' | 'gpt-pipeline') {
   if (type === 'gpt') {
     return useGptWorkspaceStore();
+  } else if (type === 'gpt-pipeline') {
+    return useGptPipelineWorkspaceStore();
   } else if (type === 'sakura') {
     return useSakuraWorkspaceStore();
   } else {

@@ -7,6 +7,8 @@ dist/
 *.tsbuildinfo
 vite.config.ts.timestamp*
 sonda-report.html
+web/src/auto-imports.d.ts
+web/src/components.d.ts
 
 # Server
 server/.gradle/

@@ -116,7 +116,7 @@ const createFileUrl = ({
   volumeId: string;
   mode: 'zh' | 'zh-jp' | 'jp-zh';
   translationsMode: 'parallel' | 'priority';
-  translations: ('sakura' | 'baidu' | 'youdao' | 'gpt')[];
+  translations: TranslatorId[];
 }) => {
   const filename = [
     mode,
