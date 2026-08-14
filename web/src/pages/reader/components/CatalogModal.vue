@@ -123,6 +123,7 @@ const onTocItemClick = (item: ReadableTocItem) => {
   <c-modal
     :show="show"
     @update:show="$emit('update:show', $event)"
+    content-scrollable
     style="min-height: 30vh; max-height: 80vh"
     content-style="overflow: auto;"
   >

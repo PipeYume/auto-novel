@@ -36,6 +36,132 @@ function parseWebNovelType(text: string): WebNovelType {
   throw new CrawlerParseError(`无法解析的小说类型:${text}`);
 }
 
+function parseTocFromEpisodeList(
+  $list: Awaited<ReturnType<typeof fetchDocument>>,
+) {
+  return $list('.episode-list__items')
+    .first()
+    .children('li')
+    .map((_, li) => {
+      const $li = $list(li);
+
+      if ($li.hasClass('episode-list__chapter')) {
+        return {
+          title:
+            $li.find('.episode-list__chapter-title').text().trim() ||
+            $li.text().trim(),
+          chapterId: null,
+          createAt: null,
+        } satisfies WebNovelTocItem;
+      }
+
+      const $a = $li.find('a').first();
+      if ($a.length === 0) {
+        return {
+          title: $li.text().trim(),
+          chapterId: null,
+          createAt: null,
+        } satisfies WebNovelTocItem;
+      }
+
+      const href = $a.attr('href') ?? '';
+      const rawDate = $a.find('time.episode-list__date').text().trim();
+
+      return {
+        title:
+          $a.find('.episode-list__title').text().trim() || $a.text().trim(),
+        chapterId: removeSuffix('.html')(removePrefix('./')(href)),
+        createAt:
+          parseJapanDateString('yyyy/MM/dd HH:mm', rawDate)?.toISOString() ??
+          null,
+      } satisfies WebNovelTocItem;
+    })
+    .get();
+}
+
+function collectMetadataTag(
+  tag: string,
+  attentions: WebNovelAttention[],
+  keywords: string[],
+) {
+  if (!tag) {
+    return;
+  }
+
+  const attention = stringToAttentionEnum(tag);
+  if (attention) {
+    if (!attentions.includes(attention)) {
+      attentions.push(attention);
+    }
+    return;
+  }
+
+  if (!keywords.includes(tag)) {
+    keywords.push(tag);
+  }
+}
+
+function parseTitle(
+  $list: Awaited<ReturnType<typeof fetchDocument>>,
+  detailTitle: string,
+) {
+  const itempropTitle = $list('span[itemprop=name]').first().text().trim();
+  if (itempropTitle) {
+    return itempropTitle;
+  }
+
+  return (
+    detailTitle ||
+    $list('#maind > div.ss')
+      .first()
+      .find('span[style*="font-size:120%"] a')
+      .first()
+      .text()
+      .trim()
+  );
+}
+
+function parseAuthor(
+  $list: Awaited<ReturnType<typeof fetchDocument>>,
+): WebNovelAuthor {
+  const authorCell = $list('span[itemprop=author]').first();
+  const authorLink =
+    authorCell.find('a').first().length > 0
+      ? authorCell.find('a').first()
+      : $list('#maind > div.ss').first().find('a[href*="/user/"]').first();
+
+  return {
+    name: (authorCell.text().trim() || authorLink.text().trim()).trim(),
+    link: authorLink.attr('href'),
+  };
+}
+
+function parseReaderChapterTitle(
+  $list: Awaited<ReturnType<typeof fetchDocument>>,
+) {
+  return $list('#honbun')
+    .prevAll('span[style*="font-size:120%"]')
+    .first()
+    .text()
+    .trim();
+}
+
+function parseIntroduction($list: Awaited<ReturnType<typeof fetchDocument>>) {
+  const introductionCell = $list('#maind > div.ss').eq(1).clone();
+  const hasReaderBody = introductionCell.find('#honbun').length > 0;
+
+  if (hasReaderBody) {
+    introductionCell.find('#maegaki, #maegaki_open, #honbun').remove();
+    introductionCell.find('div[style*="text-align:right"]').remove();
+    introductionCell.children('p').remove();
+    introductionCell.children('span[style*="font-size:120%"]').remove();
+  }
+
+  introductionCell.find('br').replaceWith('\n');
+
+  return introductionCell.text().trim();
+}
+
 export class Hameln implements WebNovelProvider {
   readonly id = 'hameln';
   readonly version = '1.0.0';
@@ -61,104 +187,74 @@ export class Hameln implements WebNovelProvider {
       ),
     ]);
 
-    const row = (label: string) => {
+    const optionalRow = (label: string) => {
       const cell = $detail('td')
         .toArray()
         .find((el) => $detail(el).text().trim() === label);
-      if (!cell) {
-        throw new CrawlerParseError(`未找到字段：${label}`);
-      }
+      return cell ? $detail(cell).next('td') : null;
+    };
 
-      const value = $detail(cell).next();
-      if (value.length === 0) {
+    const row = (label: string) => {
+      const value = optionalRow(label);
+      if (!value || value.length === 0) {
         throw new CrawlerParseError(`未找到字段：${label}`);
       }
 
       return value;
     };
 
-    const title = row('タイトル').text().trim();
-
-    const authorCell = row('作者');
-    const authorLink = authorCell.find('a').first();
-    const author: WebNovelAuthor = {
-      name: authorCell.text().trim(),
-      link: authorLink.attr('href'),
-    };
-
-    const type = parseWebNovelType(row('話数').text().trim());
-
     const attentions: WebNovelAttention[] = [];
     const keywords: string[] = [];
 
-    row('原作')
-      .find('a')
+    const title = parseTitle(
+      $list,
+      optionalRow('タイトル')?.text().trim() ?? '',
+    );
+    if (!title) {
+      throw new CrawlerParseError('标题解析失败');
+    }
+    const author = parseAuthor($list);
+
+    const topBlock = $list('#maind > div.ss').first();
+    topBlock.find('span[itemprop=genre] a').each((_, el) => {
+      collectMetadataTag($list(el).text().trim(), attentions, keywords);
+    });
+
+    topBlock
+      .find('a[href*="search/?mode=search"], a[href*="/search/"]')
       .each((_, el) => {
-        const tag = $detail(el).text().trim();
-        if (tag) {
-          keywords.push(tag);
-        }
+        collectMetadataTag($list(el).text().trim(), attentions, keywords);
       });
 
-    for (const label of ['タグ', '必須タグ']) {
-      row(label)
-        .find('a')
-        .each((_, el) => {
-          const tag = $detail(el).text().trim();
-          if (!tag) {
-            return;
-          }
-
-          const attention = stringToAttentionEnum(tag);
-          if (attention) {
-            attentions.push(attention);
-          } else {
-            keywords.push(tag);
-          }
-        });
-    }
+    const introduction = parseIntroduction($list);
 
     const points = numExtractor(row('総合評価').text().trim());
     const totalCharacters = numExtractor(row('合計文字数').text().trim()) ?? 0;
-    const introductionCell = row('あらすじ').clone();
-    introductionCell.find('br').replaceWith('\n');
-    const introduction = introductionCell.text().trim();
+    const defaultCreateAt =
+      parseJapanDateString(
+        'yyyy年MM月dd日 HH:mm',
+        row('掲載開始')
+          .text()
+          .replace(/\(.*?\)/g, '')
+          .trim(),
+      )?.toISOString() ?? null;
 
     const toc: WebNovelTocItem[] =
-      $list('span[itemprop=name]').length === 0
-        ? [{ title: '无名', chapterId: 'default', createAt: null }]
-        : $list('tbody > tr')
-            .map((_, tr) => {
-              const $tr = $list(tr);
-              const $a = $tr.find('a').first();
-              if ($a.length === 0) {
-                return {
-                  title: $tr.text().trim(),
-                  chapterId: null,
-                  createAt: null,
-                } satisfies WebNovelTocItem;
-              }
+      $list('.episode-list__items').length > 0
+        ? parseTocFromEpisodeList($list)
+        : [
+            {
+              title: parseReaderChapterTitle($list) || title || '无名',
+              chapterId: 'default',
+              createAt: defaultCreateAt,
+            },
+          ];
 
-              const href = $a.attr('href') ?? '';
-              const rawDate = $tr
-                .find('nobr')
-                .contents()
-                .first()
-                .text()
-                .replace(/\(.*?\)/g, '')
-                .trim();
-
-              return {
-                title: $a.text().trim(),
-                chapterId: removeSuffix('.html')(removePrefix('./')(href)),
-                createAt:
-                  parseJapanDateString(
-                    'yyyy年MM月dd日 HH:mm',
-                    rawDate,
-                  )?.toISOString() ?? null,
-              } satisfies WebNovelTocItem;
-            })
-            .get();
+    const typeCell = row('話数');
+    if (!typeCell) {
+      throw new Error('Failed to find row: 話数');
+    }
+    const type = parseWebNovelType(typeCell.text().trim());
 
     return {
       title,
