@@ -602,18 +602,6 @@ class WebNovelApi(
         val novel = metadataRepo.get(providerId, novelId)
             ?: throwNovelNotFound()
 
-        val newChapterIds = body.toc.mapNotNullTo(HashSet(body.toc.size)) {
-            it.chapterId
-        }
-
-        val noChapterDeleted = novel
-            .toc
-            .mapNotNull { it.chapterId }
-            .all { oldChapterId -> oldChapterId in newChapterIds }
-        if (!noChapterDeleted) {
-            user.requireAdmin()
-        }
-
         // Merge toc with the old one to preserve translation.
         val oldTitleZhAcc = buildMap<String, String?>(novel.toc.size) {
             novel.toc.forEach { oldItem ->
