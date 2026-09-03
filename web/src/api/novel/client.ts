@@ -14,6 +14,13 @@ export const client = ky.create({
         }
       },
     ],
+    afterResponse: [
+      (_request, _options, response, { retryCount }) => {
+        if (response.status === 401 && retryCount === 0) {
+          return ky.retry();
+        }
+      },
+    ],
   },
 });
 
