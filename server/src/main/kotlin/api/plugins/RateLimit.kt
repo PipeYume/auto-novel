@@ -27,11 +27,17 @@ fun Application.rateLimit() = install(RateLimit) {
         requestKey { call -> call.user().id }
     }
     register(RateLimitNames.CreateWenkuNovel) {
-        rateLimiter(limit = 100, refillPeriod = 1.days)
+        rateLimiter { call, _ ->
+            val limit = if (call.user().role atLeast UserRole.Trusted) 2_000 else 100
+            RateLimiter.default(limit = limit, refillPeriod = 1.days)
+        }
         requestKey { call -> call.user().id }
     }
     register(RateLimitNames.CreateWenkuVolume) {
-        rateLimiter(limit = 500, refillPeriod = 1.days)
+        rateLimiter { call, _ ->
+            val limit = if (call.user().role atLeast UserRole.Trusted) 10_000 else 500
+            RateLimiter.default(limit = limit, refillPeriod = 1.days)
+        }
         requestKey { call -> call.user().id }
     }
 }
