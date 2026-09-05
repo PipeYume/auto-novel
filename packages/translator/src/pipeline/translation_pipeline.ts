@@ -29,6 +29,7 @@ export class TranslationPipeline {
     highWaterMark?: number,
     segmenter?: LineSegmenter,
     cache?: SegmentCache,
+    private readonly concurrencyLevel: 'segment' | 'chapter' = 'segment', // 为 chapter 时，传入的章节按分段顺序依次翻译（而非全部并发），同时填充前个分段的译文
   ) {
     this.translatorLoops = new Map();
     this.queue = new DefaultSegmentQueue(highWaterMark ?? 50);
@@ -51,7 +52,6 @@ export class TranslationPipeline {
       signal,
       tracker,
     );
-    await this.queue.enqueueAll(segments, signal);
     return this.resolveTranslation(segments, segmentPromises, signal, tracker);
   }
 
@@ -138,6 +138,29 @@ export class TranslationPipeline {
     signal?: AbortSignal,
     tracker?: SegmentTracker,
   ): Promise<string> {
+    if (this.concurrencyLevel === 'segment') {
+      await this.queue.enqueueAll(segments, signal);
+    } else {
+      const prevSegs: string[][] = [];
+      // 逐分片确认翻译完成
+      for (const [index, segment] of segments.entries()) {
+        segment.context = {
+          ...segment.context,
+          prevSegs: prevSegs,
+        };
+
+        await this.queue.enqueueAll([segment], signal);
+
+        const [result] = await Promise.allSettled([segmentPromises[index]]);
+
+        if (signal?.aborted) break;
+
+        if (result.status === 'fulfilled') {
+          prevSegs.push(result.value.text.split('\n'));
+        }
+      }
+    }
+
     const results = await Promise.allSettled(segmentPromises);
 
     if (signal?.aborted) {
